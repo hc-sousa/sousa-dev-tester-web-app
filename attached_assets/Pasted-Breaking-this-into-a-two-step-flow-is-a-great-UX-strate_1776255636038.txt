@@ -1,0 +1,37 @@
+Breaking this into a two-step flow is a great UX strategy. It lowers the barrier to entry so you capture leads immediately, and then leverages their momentum to get the detailed data.
+
+Here is a structured, topic-by-topic prompt you can copy and paste directly to the Replit agent to build this flow:
+
+---
+
+## **Project Goal**
+Build a two-step beta tester registration flow. Step 1 is a rapid, frictionless lead-capture form that saves to the database immediately. Step 2 is a detailed profile completion form that pre-fills data from Step 1 and updates the existing database record.
+
+### **Topic 1: Database Schema & Backend**
+* **Table Setup:** Create a `testers` table in the database.
+* **Step 1 Fields:** Needs columns for `id` (primary key), `email` (string, unique), `birth_year` (integer), `devices` (array or JSON), and `other_device_details` (string).
+* **Step 2 Fields:** Add nullable columns for the detailed profile (e.g., `testing_experience`, `occupation`, `bug_report_sample`, `nda_signed`).
+* **Save Logic (Step 1):** Create a new database row instantly when Step 1 is submitted. 
+* **Update Logic (Step 2):** When Step 2 is submitted, execute an UPDATE on the existing row based on the user's ID, rather than creating a new row.
+
+### **Topic 2: Frontend - Step 1 (Quick Sign-Up Form)**
+* **UI/UX:** Design a clean, minimal landing page form.
+* **Inputs:** * **Email:** standard email input (required).
+    * **Year of Birth:** number input or dropdown (required).
+    * **Devices:** Checkboxes for `Windows`, `Mac`, `iPhone`, `Android`, and `Other`.
+* **Conditional Logic:** If the user checks "Other" for devices, dynamically render a text input field asking "Which device?"
+* **Action:** On form submit, show a quick loading state, save to the database, and immediately redirect the user to the Step 2 URL.
+
+### **Topic 3: Routing & State Management**
+* **Data Passing:** When redirecting from Step 1 to Step 2, securely pass the newly created `user_id` (using a session, secure cookie, or URL parameter like `/complete-profile?id=[user_id]`).
+* **Data Fetching:** On page load for Step 2, use the `user_id` to query the database and fetch the `email`, `birth_year`, and `devices` that were just saved.
+
+### **Topic 4: Frontend - Step 2 (Detailed Profile Form)**
+* **Pre-filling Data:** Render a larger form. The `Email`, `Year of Birth`, and `Devices` fields must be visible but pre-filled with the fetched data so the user doesn't have to type them again. (Make the email field read-only to prevent DB conflicts).
+* **Extended Inputs:** Add fields for the technical and demographic data:
+    * Testing experience level (Dropdown: Beginner, Hobbyist, Professional).
+    * Specific device models (Text input).
+    * Occupation/Industry (Text input).
+    * Vetting question: "Describe a bug you recently found" (Textarea).
+    * NDA consent (Required Checkbox).
+* **Action:** On submit, update the database record and redirect the user to a "Thank You" or "Success" page.
