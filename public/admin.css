@@ -563,6 +563,361 @@ tbody tr:hover td {
   opacity: 1;
 }
 
+/* ── Action Buttons ── */
+.td-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: all 0.18s;
+  font-family: 'Poppins', sans-serif;
+  flex-shrink: 0;
+}
+
+.btn-action--edit {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+.btn-action--edit:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.btn-action--delete {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+.btn-action--delete:hover {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+/* ── Admin Modals ── */
+.adm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s, visibility 0.22s;
+}
+
+.adm-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.adm-modal {
+  background: #0c1520;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+  transform: translateY(10px) scale(0.98);
+  transition: transform 0.22s;
+  max-height: 90vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.adm-overlay.open .adm-modal {
+  transform: translateY(0) scale(1);
+}
+
+.adm-modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  opacity: 0.5;
+  border-radius: 18px 18px 0 0;
+}
+
+.adm-modal--lg { max-width: 680px; }
+.adm-modal--sm { max-width: 420px; }
+
+.adm-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+
+.adm-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.adm-modal-title--danger {
+  color: #f87171;
+}
+
+.adm-modal-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.adm-modal-close:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.adm-modal-body {
+  padding: 1.4rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.adm-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+
+/* ── Admin Form ── */
+.adm-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.adm-form-group {
+  margin-bottom: 1rem;
+}
+
+.adm-form-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+
+.adm-form-group input,
+.adm-form-group select,
+.adm-form-group textarea {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: 'Poppins', sans-serif;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  box-sizing: border-box;
+}
+
+.adm-form-group input:focus,
+.adm-form-group select:focus,
+.adm-form-group textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(16, 180, 60, 0.1);
+}
+
+.adm-form-group select option {
+  background: #0c1520;
+  color: var(--text-primary);
+}
+
+.adm-form-group textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.adm-checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.adm-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.3rem 0.7rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.adm-check:hover {
+  border-color: var(--green);
+  color: var(--text-primary);
+}
+
+.adm-check input {
+  accent-color: var(--green);
+  width: auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Confirm modal */
+.adm-confirm-text {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem;
+  line-height: 1.6;
+}
+
+.adm-confirm-email {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.75rem;
+  word-break: break-all;
+}
+
+.adm-confirm-warn {
+  font-size: 0.8rem;
+  color: #f87171;
+  margin: 0;
+}
+
+/* Buttons */
+.adm-btn-cancel {
+  padding: 0.55rem 1.2rem;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.adm-btn-cancel:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.adm-btn-save {
+  padding: 0.55rem 1.5rem;
+  background: var(--green);
+  border: none;
+  border-radius: 999px;
+  color: #060a10;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s;
+  letter-spacing: 0.02em;
+}
+
+.adm-btn-save:hover {
+  box-shadow: 0 0 18px rgba(16, 180, 60, 0.4);
+  opacity: 0.92;
+}
+
+.adm-btn-delete {
+  padding: 0.55rem 1.5rem;
+  background: #ef4444;
+  border: none;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.adm-btn-delete:hover {
+  background: #dc2626;
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.35);
+}
+
+/* ── Toast notification ── */
+.adm-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: #0c1520;
+  border: 1px solid var(--border-bright);
+  border-radius: 12px;
+  padding: 0.7rem 1.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  z-index: 3000;
+  transition: transform 0.3s, opacity 0.3s;
+  opacity: 0;
+  white-space: nowrap;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+
+.adm-toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.adm-toast--success { border-color: rgba(16, 180, 60, 0.4); }
+.adm-toast--error   { border-color: rgba(248, 113, 113, 0.4); }
+
 /* ── Responsive ── */
 @media (max-width: 900px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }

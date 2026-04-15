@@ -273,8 +273,9 @@ app.get('/admin/dashboard', async (req, res) => {
         GROUP BY testing_experience ORDER BY cnt DESC
       `),
       pool.query(`
-        SELECT email, birth_year, devices, testing_experience, occupation,
-               nda_signed, step2_token, created_at
+        SELECT id, email, birth_year, devices, other_device_details,
+               testing_experience, device_models, occupation,
+               bug_report_sample, nda_signed, step2_token, created_at
         FROM testers ORDER BY created_at DESC
       `)
     ]);
@@ -319,6 +320,19 @@ app.get('/admin/dashboard', async (req, res) => {
       const initial = (t.email || '?')[0].toUpperCase();
       const deviceTags = devices.map(d => `<span class="device-tag">${escapeHtml(d)}</span>`).join('');
 
+      const testerJson = JSON.stringify({
+        id: t.id,
+        email: t.email,
+        birth_year: t.birth_year,
+        devices: devices,
+        other_device_details: t.other_device_details || '',
+        testing_experience: t.testing_experience || '',
+        device_models: t.device_models || '',
+        occupation: t.occupation || '',
+        bug_report_sample: t.bug_report_sample || '',
+        nda_signed: t.nda_signed
+      }).replace(/"/g, '&quot;');
+
       return `<tr>
         <td>
           <div class="td-email">
@@ -333,6 +347,12 @@ app.get('/admin/dashboard', async (req, res) => {
         <td>${ndaBadge}</td>
         <td>${statusBadge}</td>
         <td>${date}</td>
+        <td>
+          <div class="td-actions">
+            <button class="btn-action btn-action--edit" title="Edit" onclick="openEditModal(this)" data-tester="${testerJson}">✏️</button>
+            <button class="btn-action btn-action--delete" title="Delete" onclick="openDeleteModal(this)" data-id="${t.id}" data-email="${escapeHtml(t.email)}">🗑️</button>
+          </div>
+        </td>
       </tr>`;
     }).join('');
 
@@ -407,6 +427,73 @@ app.get('/admin/export', async (req, res) => {
   } catch (err) {
     console.error('Export error:', err);
     res.status(500).send('Failed to export data.');
+  }
+});
+
+app.post('/admin/tester/:id/update', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).send('Invalid ID.');
+
+  try {
+    const { email, birth_year, devices, other_device_details, testing_experience,
+            device_models, occupation, bug_report_sample, nda_signed } = req.body;
+
+    if (!email || !birth_year) return res.status(400).send('Email and birth year are required.');
+    const year = parseInt(birth_year);
+    if (isNaN(year) || year < 1920 || year > 2010) return res.status(400).send('Invalid birth year.');
+
+    const rawDevices = Array.isArray(devices) ? devices : devices ? [devices] : [];
+    const deviceArray = rawDevices.filter(d => ALLOWED_DEVICES.includes(d));
+
+    const ndaBool = nda_signed === 'yes' ? true : nda_signed === 'no' ? false : null;
+
+    const result = await pool.query(
+      `UPDATE testers SET
+        email = $1,
+        birth_year = $2,
+        devices = $3,
+        other_device_details = $4,
+        testing_experience = $5,
+        device_models = $6,
+        occupation = $7,
+        bug_report_sample = $8,
+        nda_signed = $9,
+        updated_at = NOW()
+       WHERE id = $10`,
+      [
+        email.trim(), year, JSON.stringify(deviceArray),
+        other_device_details || null, testing_experience || null,
+        device_models || null, occupation || null,
+        bug_report_sample || null, ndaBool, id
+      ]
+    );
+
+    if (result.rowCount === 0) return res.status(404).send('Tester not found.');
+    res.redirect('/admin/dashboard?success=updated');
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.redirect('/admin/dashboard?error=duplicate_email');
+    }
+    console.error('Update tester error:', err);
+    res.status(500).send('Failed to update tester.');
+  }
+});
+
+app.post('/admin/tester/:id/delete', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).send('Invalid ID.');
+
+  try {
+    const result = await pool.query('DELETE FROM testers WHERE id = $1', [id]);
+    if (result.rowCount === 0) return res.status(404).send('Tester not found.');
+    res.redirect('/admin/dashboard?success=deleted');
+  } catch (err) {
+    console.error('Delete tester error:', err);
+    res.status(500).send('Failed to delete tester.');
   }
 });
 

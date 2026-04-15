@@ -131,9 +131,7 @@
               <span class="table-search-icon">🔍</span>
               <input type="text" class="table-search" id="tableSearch" placeholder="Search testers…" oninput="filterTable()">
             </div>
-            <a href="/admin/export" class="btn-export">
-              ↓ Export CSV
-            </a>
+            <a href="/admin/export" class="btn-export">↓ Export CSV</a>
           </div>
         </div>
         <div class="table-wrap">
@@ -148,6 +146,7 @@
                 <th>NDA</th>
                 <th>Status</th>
                 <th>Signed Up</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="testersBody">
@@ -166,7 +165,127 @@
 
   </div>
 
+  <!-- ── Edit Modal ── -->
+  <div class="adm-overlay" id="editModal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+    <div class="adm-modal adm-modal--lg">
+      <div class="adm-modal-header">
+        <div class="adm-modal-title" id="editModalTitle">✏️ &nbsp;Edit Profile</div>
+        <button class="adm-modal-close" onclick="closeEditModal()" aria-label="Close">&times;</button>
+      </div>
+      <form id="editForm" method="POST">
+        <div class="adm-modal-body">
+          <div class="adm-form-row">
+            <div class="adm-form-group">
+              <label for="edit_email">Email Address</label>
+              <input type="email" id="edit_email" name="email" required>
+            </div>
+            <div class="adm-form-group">
+              <label for="edit_birth_year">Year of Birth</label>
+              <input type="number" id="edit_birth_year" name="birth_year" min="1920" max="2010" required>
+            </div>
+          </div>
+
+          <div class="adm-form-group">
+            <label>Devices</label>
+            <div class="adm-checkbox-row">
+              <label class="adm-check"><input type="checkbox" name="devices" value="Windows"> Windows</label>
+              <label class="adm-check"><input type="checkbox" name="devices" value="Mac"> Mac</label>
+              <label class="adm-check"><input type="checkbox" name="devices" value="iPhone"> iPhone</label>
+              <label class="adm-check"><input type="checkbox" name="devices" value="Android"> Android</label>
+              <label class="adm-check"><input type="checkbox" name="devices" value="Other"> Other</label>
+            </div>
+          </div>
+
+          <div class="adm-form-row">
+            <div class="adm-form-group">
+              <label for="edit_other_device_details">Other Device Details</label>
+              <input type="text" id="edit_other_device_details" name="other_device_details" placeholder="e.g. Linux, Steam Deck">
+            </div>
+            <div class="adm-form-group">
+              <label for="edit_device_models">Device Models</label>
+              <input type="text" id="edit_device_models" name="device_models" placeholder="e.g. iPhone 15, Galaxy S24">
+            </div>
+          </div>
+
+          <div class="adm-form-row">
+            <div class="adm-form-group">
+              <label for="edit_testing_experience">Experience Level</label>
+              <select id="edit_testing_experience" name="testing_experience">
+                <option value="">— Not set —</option>
+                <option value="Beginner">Beginner</option>
+                <option value="Hobbyist">Hobbyist</option>
+                <option value="Professional">Professional</option>
+              </select>
+            </div>
+            <div class="adm-form-group">
+              <label for="edit_occupation">Occupation</label>
+              <input type="text" id="edit_occupation" name="occupation" placeholder="e.g. Software Engineer">
+            </div>
+          </div>
+
+          <div class="adm-form-group">
+            <label for="edit_bug_report_sample">Bug Report Sample</label>
+            <textarea id="edit_bug_report_sample" name="bug_report_sample" rows="3" placeholder="Optional bug report sample…"></textarea>
+          </div>
+
+          <div class="adm-form-group">
+            <label>NDA Willing</label>
+            <div class="adm-checkbox-row">
+              <label class="adm-check"><input type="radio" name="nda_signed" value="yes"> Yes</label>
+              <label class="adm-check"><input type="radio" name="nda_signed" value="no"> No</label>
+            </div>
+          </div>
+        </div>
+        <div class="adm-modal-footer">
+          <button type="button" class="adm-btn-cancel" onclick="closeEditModal()">Cancel</button>
+          <button type="submit" class="adm-btn-save">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Delete Confirmation Modal ── -->
+  <div class="adm-overlay" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="adm-modal adm-modal--sm">
+      <div class="adm-modal-header">
+        <div class="adm-modal-title adm-modal-title--danger" id="deleteModalTitle">🗑️ &nbsp;Delete Profile</div>
+        <button class="adm-modal-close" onclick="closeDeleteModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="adm-modal-body">
+        <p class="adm-confirm-text">Are you sure you want to permanently delete the profile for:</p>
+        <div class="adm-confirm-email" id="deleteEmailLabel">—</div>
+        <p class="adm-confirm-warn">This action cannot be undone.</p>
+      </div>
+      <div class="adm-modal-footer">
+        <button type="button" class="adm-btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+        <form id="deleteForm" method="POST" style="margin:0">
+          <button type="submit" class="adm-btn-delete">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="adm-toast" id="adm-toast"></div>
+
   <script>
+    function showToast(msg, type) {
+      const t = document.getElementById('adm-toast');
+      t.textContent = msg;
+      t.className = 'adm-toast adm-toast--' + (type || 'success') + ' show';
+      setTimeout(() => { t.className = 'adm-toast'; }, 3200);
+    }
+
+    (function checkQueryParams() {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('success') === 'updated') showToast('✅  Profile updated successfully', 'success');
+      if (p.get('success') === 'deleted') showToast('🗑️  Profile deleted', 'success');
+      if (p.get('error') === 'duplicate_email') showToast('⚠️  That email is already in use', 'error');
+      if (p.has('success') || p.has('error')) {
+        window.history.replaceState({}, '', '/admin/dashboard');
+      }
+    })();
+
     function filterTable() {
       const q = document.getElementById('tableSearch').value.toLowerCase();
       const rows = document.querySelectorAll('#testersBody tr');
@@ -178,6 +297,60 @@
       });
       document.getElementById('tableEmpty').style.display = visible === 0 ? 'block' : 'none';
     }
+
+    function openEditModal(btn) {
+      const data = JSON.parse(btn.getAttribute('data-tester'));
+      const form = document.getElementById('editForm');
+      form.action = '/admin/tester/' + data.id + '/update';
+
+      document.getElementById('edit_email').value = data.email || '';
+      document.getElementById('edit_birth_year').value = data.birth_year || '';
+      document.getElementById('edit_other_device_details').value = data.other_device_details || '';
+      document.getElementById('edit_device_models').value = data.device_models || '';
+      document.getElementById('edit_testing_experience').value = data.testing_experience || '';
+      document.getElementById('edit_occupation').value = data.occupation || '';
+      document.getElementById('edit_bug_report_sample').value = data.bug_report_sample || '';
+
+      document.querySelectorAll('input[name="devices"]').forEach(cb => {
+        cb.checked = Array.isArray(data.devices) && data.devices.includes(cb.value);
+      });
+
+      const ndaVal = data.nda_signed === true || data.nda_signed === 'true' ? 'yes' : 'no';
+      const ndaRadio = document.querySelector(`input[name="nda_signed"][value="${ndaVal}"]`);
+      if (ndaRadio) ndaRadio.checked = true;
+
+      document.getElementById('editModal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function openDeleteModal(btn) {
+      const id = btn.getAttribute('data-id');
+      const email = btn.getAttribute('data-email');
+      document.getElementById('deleteEmailLabel').textContent = email;
+      document.getElementById('deleteForm').action = '/admin/tester/' + id + '/delete';
+      document.getElementById('deleteModal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    document.getElementById('editModal').addEventListener('click', function(e) {
+      if (e.target === this) closeEditModal();
+    });
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
+      if (e.target === this) closeDeleteModal();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeEditModal(); closeDeleteModal(); }
+    });
   </script>
 </body>
 </html>
