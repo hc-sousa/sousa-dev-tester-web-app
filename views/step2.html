@@ -127,9 +127,78 @@
 
     <footer class="site-footer">
       &copy; 2026 <a href="https://sousadev.com" target="_blank">Sousa Dev</a> &mdash; IT Solutions
+      &nbsp;&middot;&nbsp;
+      <button class="footer-privacy-link" onclick="openPrivacyModal()">Privacy Policy</button>
     </footer>
 
   </div>
+
+  <!-- Privacy Policy Modal -->
+  <div class="modal-overlay" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <div class="modal-title-icon">&#128274;</div>
+          <span id="privacyModalTitle">Privacy Policy</span>
+        </div>
+        <button class="modal-close" onclick="closePrivacyModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Last updated: April 2026</p>
+
+        <div class="modal-highlight">
+          <p>By signing up for the Sousa Dev Beta Program, you authorise us to store and share your provided profile data with our clients, strictly for the purpose of matching beta testers to software testing opportunities.</p>
+        </div>
+
+        <h3>What Data We Collect</h3>
+        <p>When you register, we collect the following information:</p>
+        <ul>
+          <li>Email address and year of birth</li>
+          <li>Devices you can test on</li>
+          <li>Testing experience level and occupation</li>
+          <li>Optional bug report sample and device model details</li>
+          <li>Your NDA willingness preference</li>
+        </ul>
+
+        <h3>How Your Data Is Used</h3>
+        <p>Your data is used solely to build a tester profile. This profile may be shared with Sousa Dev clients who are seeking beta testers for their software. Your data will only be shared when your profile matches the criteria required for a specific project.</p>
+        <ul>
+          <li>Your data is never sold or used for advertising</li>
+          <li>Sharing only happens when there is a genuine project match</li>
+          <li>Clients receive only the information relevant to assess your fit</li>
+        </ul>
+
+        <h3>Data Sharing With Clients</h3>
+        <p>Sousa Dev acts as an intermediary between testers and software clients. When your profile matches a project's requirements, the relevant client will be given access to your profile information to evaluate whether to invite you as a tester. All clients are bound by confidentiality obligations.</p>
+
+        <h3>Your Rights</h3>
+        <p>You may request the deletion or correction of your data at any time by contacting us at <a href="mailto:info@sousadev.com" style="color: var(--green);">info@sousadev.com</a>. We will process your request within 30 days.</p>
+
+        <h3>Contact</h3>
+        <p>For any privacy-related questions, reach out to us at <a href="mailto:info@sousadev.com" style="color: var(--green);">info@sousadev.com</a>.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn-close" onclick="closePrivacyModal()">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openPrivacyModal() {
+      document.getElementById('privacyModal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function closePrivacyModal() {
+      document.getElementById('privacyModal').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    document.getElementById('privacyModal').addEventListener('click', function(e) {
+      if (e.target === this) closePrivacyModal();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closePrivacyModal();
+    });
+  </script>
 
   <script id="tester-data" type="application/json">{{SAFE_DATA_JSON}}</script>
   <script>
