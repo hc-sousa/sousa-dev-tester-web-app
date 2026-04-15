@@ -240,7 +240,7 @@ app.post('/api/step1', async (req, res) => {
       `INSERT INTO testers (email, birth_year, devices, other_device_details, step2_token)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id`,
-      [email.trim(), year, JSON.stringify(deviceArray), other_device_details || null, token]
+      [email.trim().toLowerCase(), year, JSON.stringify(deviceArray), other_device_details || null, token]
     );
     res.redirect(`/complete-profile?token=${token}`);
   } catch (err) {
@@ -961,7 +961,7 @@ app.post('/admin/tester/:id/update', async (req, res) => {
         updated_at = NOW()
        WHERE id = $10`,
       [
-        email.trim(), year, JSON.stringify(deviceArray),
+        email.trim().toLowerCase(), year, JSON.stringify(deviceArray),
         other_device_details || null, testing_experience || null,
         device_models || null, occupation || null,
         bug_report_sample || null, ndaBool, id
