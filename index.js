@@ -570,10 +570,10 @@ app.get('/portal/task/:id', async (req, res) => {
 
     let html = portalTaskTemplate;
     html = html.replace(/\{\{TASK_ID\}\}/g, task.id);
-    html = html.replace('{{TASK_TITLE}}', escapeHtml(task.title));
-    html = html.replace('{{TASK_DESC}}', escapeHtml(task.description || ''));
-    html = html.replace('{{TOTAL_COMP}}', totalComp.toFixed(2));
-    html = html.replace('{{SUBTASK_COUNT}}', subtasksRes.rows.length);
+    html = html.replace(/\{\{TASK_TITLE\}\}/g, escapeHtml(task.title));
+    html = html.replace(/\{\{TASK_DESC\}\}/g, escapeHtml(task.description || ''));
+    html = html.replace(/\{\{TOTAL_COMP\}\}/g, totalComp.toFixed(2));
+    html = html.replace(/\{\{SUBTASK_COUNT\}\}/g, subtasksRes.rows.length);
     html = html.replace('{{SUBTASKS_HTML}}', subtasksHtml);
 
     res.send(html);
@@ -1002,13 +1002,16 @@ app.get('/admin/tasks', async (req, res) => {
   try {
     const tasksRes = await pool.query(`
       SELECT t.*,
-             COUNT(DISTINCT st.id)::int AS subtask_count,
+             COALESCE(sc.subtask_count, 0)::int AS subtask_count,
              COUNT(DISTINCT ta.tester_id)::int AS tester_count,
-             COALESCE(SUM(st.compensation), 0) AS total_compensation
+             COALESCE(sc.total_compensation, 0) AS total_compensation
       FROM tasks t
-      LEFT JOIN subtasks st ON st.task_id = t.id
+      LEFT JOIN (
+        SELECT task_id, COUNT(*)::int AS subtask_count, SUM(compensation) AS total_compensation
+        FROM subtasks GROUP BY task_id
+      ) sc ON sc.task_id = t.id
       LEFT JOIN task_assignments ta ON ta.task_id = t.id
-      GROUP BY t.id
+      GROUP BY t.id, sc.subtask_count, sc.total_compensation
       ORDER BY t.created_at DESC
     `);
 
@@ -1124,16 +1127,16 @@ app.get('/admin/tasks/:id', async (req, res) => {
 
     let html = adminTaskDetailTemplate;
     html = html.replace(/\{\{TASK_ID\}\}/g, task.id);
-    html = html.replace('{{TASK_TITLE}}', escapeHtml(task.title));
-    html = html.replace('{{TASK_DESC}}', escapeHtml(task.description || ''));
-    html = html.replace('{{TASK_MARKDOWN}}', escapeHtml(task.markdown_content));
-    html = html.replace('{{TASK_STATUS}}', task.status);
-    html = html.replace('{{TOTAL_COMP}}', totalComp.toFixed(2));
-    html = html.replace('{{SUBTASK_COUNT}}', subtasksRes.rows.length);
+    html = html.replace(/\{\{TASK_TITLE\}\}/g, escapeHtml(task.title));
+    html = html.replace(/\{\{TASK_DESC\}\}/g, escapeHtml(task.description || ''));
+    html = html.replace(/\{\{TASK_MARKDOWN\}\}/g, escapeHtml(task.markdown_content));
+    html = html.replace(/\{\{TASK_STATUS\}\}/g, task.status);
+    html = html.replace(/\{\{TOTAL_COMP\}\}/g, totalComp.toFixed(2));
+    html = html.replace(/\{\{SUBTASK_COUNT\}\}/g, subtasksRes.rows.length);
     html = html.replace('{{SUBTASKS_HTML}}', subtasksHtml || '<p class="text-muted">No subtasks parsed from markdown.</p>');
     html = html.replace('{{ASSIGNED_HTML}}', assignedHtml || '<p class="text-muted">No testers assigned yet.</p>');
     html = html.replace('{{UNASSIGNED_OPTIONS}}', unassignedOptions);
-    html = html.replace('{{ASSIGNED_COUNT}}', assignmentsRes.rows.length);
+    html = html.replace(/\{\{ASSIGNED_COUNT\}\}/g, assignmentsRes.rows.length);
 
     res.send(html);
   } catch (err) {
