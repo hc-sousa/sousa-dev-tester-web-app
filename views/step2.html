@@ -3,83 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Complete Your Profile</title>
+  <title>Complete Your Profile — Sousa Dev</title>
+  <link rel="icon" href="https://sousadev.com/assets/favicon/apple-touch-icon.png">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="container">
-    <div class="card card-wide">
-      <div class="step-indicator">
-        <div class="step completed">&#10003;</div>
-        <div class="step-line active"></div>
-        <div class="step active">2</div>
+  <div class="page-wrapper">
+
+    <header class="site-header">
+      <a href="https://sousadev.com" target="_blank" class="logo-link">
+        <img src="https://sousadev.com/assets/images/logo.png" alt="Sousa Dev Logo">
+        <span class="brand-name">Sousa Dev</span>
+      </a>
+      <div class="header-badge">Beta Program</div>
+    </header>
+
+    <div class="container">
+      <div class="card card-wide">
+        <div class="step-indicator">
+          <div class="step completed">&#10003;</div>
+          <div class="step-line active"></div>
+          <div class="step active">2</div>
+        </div>
+
+        <h1>Complete Your <span class="accent">Profile</span></h1>
+        <p class="subtitle">Almost there — help us understand your testing background.</p>
+
+        <form action="/api/step2" method="POST" id="step2Form">
+          <input type="hidden" name="token" value="{{TOKEN}}">
+
+          <div class="section-label">Your Info from Step 1</div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input type="email" id="email" value="{{EMAIL}}" readonly class="readonly-input">
+            </div>
+            <div class="form-group">
+              <label for="birth_year">Year of Birth</label>
+              <input type="number" id="birth_year" value="{{BIRTH_YEAR}}" readonly class="readonly-input">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Devices</label>
+            <div class="device-tags" id="deviceTags"></div>
+          </div>
+
+          <hr class="divider">
+          <div class="section-label">Tell Us More</div>
+
+          <div class="form-group">
+            <label for="testing_experience">Testing Experience Level <span class="required">*</span></label>
+            <select id="testing_experience" name="testing_experience" required>
+              <option value="" disabled selected>Select your experience level</option>
+              <option value="Beginner">Beginner</option>
+              <option value="Hobbyist">Hobbyist</option>
+              <option value="Professional">Professional</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="device_models">Specific Device Models</label>
+            <input type="text" id="device_models" name="device_models" placeholder="e.g. iPhone 15 Pro, Samsung Galaxy S24, MacBook Air M3">
+          </div>
+
+          <div class="form-group">
+            <label for="occupation">Occupation / Industry</label>
+            <input type="text" id="occupation" name="occupation" placeholder="e.g. Software Developer, Student, Designer">
+          </div>
+
+          <div class="form-group">
+            <label for="bug_report_sample">Describe a bug you recently found <span class="required">*</span></label>
+            <textarea id="bug_report_sample" name="bug_report_sample" required rows="4" placeholder="Tell us about a bug you encountered. What happened? What did you expect to happen?"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label nda-label">
+              <input type="checkbox" name="nda_signed" id="nda_signed" required>
+              <span class="checkmark"></span>
+              I agree to sign a Non-Disclosure Agreement (NDA) before accessing beta builds.&nbsp;<span class="required">*</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn-primary" id="submitBtn">
+            <span>Submit Application &rarr;</span>
+          </button>
+        </form>
       </div>
-      <h1>Complete Your Profile</h1>
-      <p class="subtitle">You're almost there! Help us understand your testing background.</p>
-
-      <form action="/api/step2" method="POST" id="step2Form">
-        <input type="hidden" name="token" value="{{TOKEN}}">
-
-        <div class="section-label">Your Info (from Step 1)</div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="email">Email Address</label>
-            <input type="email" id="email" value="{{EMAIL}}" readonly class="readonly-input">
-          </div>
-          <div class="form-group">
-            <label for="birth_year">Year of Birth</label>
-            <input type="number" id="birth_year" value="{{BIRTH_YEAR}}" readonly class="readonly-input">
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Devices</label>
-          <div class="device-tags" id="deviceTags"></div>
-        </div>
-
-        <hr class="divider">
-        <div class="section-label">Tell Us More</div>
-
-        <div class="form-group">
-          <label for="testing_experience">Testing Experience Level <span class="required">*</span></label>
-          <select id="testing_experience" name="testing_experience" required>
-            <option value="" disabled selected>Select your experience level</option>
-            <option value="Beginner">Beginner</option>
-            <option value="Hobbyist">Hobbyist</option>
-            <option value="Professional">Professional</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="device_models">Specific Device Models</label>
-          <input type="text" id="device_models" name="device_models" placeholder="e.g. iPhone 15 Pro, Samsung Galaxy S24, MacBook Air M3">
-        </div>
-
-        <div class="form-group">
-          <label for="occupation">Occupation / Industry</label>
-          <input type="text" id="occupation" name="occupation" placeholder="e.g. Software Developer, Student, Designer">
-        </div>
-
-        <div class="form-group">
-          <label for="bug_report_sample">Describe a bug you recently found <span class="required">*</span></label>
-          <textarea id="bug_report_sample" name="bug_report_sample" required rows="4" placeholder="Tell us about a bug you encountered in any app or website. What happened? What did you expect to happen?"></textarea>
-        </div>
-
-        <div class="form-group">
-          <label class="checkbox-label nda-label">
-            <input type="checkbox" name="nda_signed" id="nda_signed" required>
-            <span class="checkmark"></span>
-            I agree to sign a Non-Disclosure Agreement (NDA) before accessing beta builds. <span class="required">*</span>
-          </label>
-        </div>
-
-        <button type="submit" class="btn-primary" id="submitBtn">
-          <span class="btn-text">Submit Application</span>
-          <span class="btn-loading" style="display:none;">Submitting...</span>
-        </button>
-      </form>
     </div>
+
+    <footer class="site-footer">
+      &copy; 2025 <a href="https://sousadev.com" target="_blank">Sousa Dev</a> &mdash; IT Solutions
+    </footer>
+
   </div>
 
   <script id="tester-data" type="application/json">{{SAFE_DATA_JSON}}</script>
@@ -87,17 +104,18 @@
     const data = JSON.parse(document.getElementById('tester-data').textContent);
     const tagsContainer = document.getElementById('deviceTags');
 
-    data.devices.forEach(function(device) {
+    data.devices.forEach(function (device) {
       const tag = document.createElement('span');
       tag.className = 'device-tag';
-      tag.textContent = device === 'Other' && data.otherDetails ? 'Other (' + data.otherDetails + ')' : device;
+      tag.textContent = device === 'Other' && data.otherDetails
+        ? 'Other (' + data.otherDetails + ')'
+        : device;
       tagsContainer.appendChild(tag);
     });
 
-    document.getElementById('step2Form').addEventListener('submit', function() {
+    document.getElementById('step2Form').addEventListener('submit', function () {
       const btn = document.getElementById('submitBtn');
-      btn.querySelector('.btn-text').style.display = 'none';
-      btn.querySelector('.btn-loading').style.display = 'inline';
+      btn.innerHTML = '<span>Submitting&hellip;</span>';
       btn.disabled = true;
     });
   </script>
