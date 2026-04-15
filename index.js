@@ -619,14 +619,14 @@ app.post('/portal/task/:taskId/submit/:subtaskId', upload.single('screenshot'), 
       }
       const updateScreenshot = screenshotPath || old.screenshot_path;
       await pool.query(
-        `UPDATE submissions SET workflow_text = $1, screenshot_path = $2, status = 'submitted', admin_notes = NULL, updated_at = NOW()
+        `UPDATE submissions SET workflow_text = $1, screenshot_path = $2, status = 'in_review', admin_notes = NULL, updated_at = NOW()
          WHERE id = $3`,
         [workflow_text || null, updateScreenshot, old.id]
       );
     } else {
       await pool.query(
         `INSERT INTO submissions (subtask_id, tester_id, workflow_text, screenshot_path, status)
-         VALUES ($1, $2, $3, $4, 'submitted')`,
+         VALUES ($1, $2, $3, $4, 'in_review')`,
         [subtaskId, testerId, workflow_text || null, screenshotPath]
       );
     }
