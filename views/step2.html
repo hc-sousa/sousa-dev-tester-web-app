@@ -54,13 +54,30 @@
           <div class="section-label">Tell Us More</div>
 
           <div class="form-group">
-            <label for="testing_experience">Testing Experience Level <span class="required">*</span></label>
-            <select id="testing_experience" name="testing_experience" required>
-              <option value="" disabled selected>Select your experience level</option>
-              <option value="Beginner">Beginner</option>
-              <option value="Hobbyist">Hobbyist</option>
-              <option value="Professional">Professional</option>
-            </select>
+            <label>Testing Experience Level <span class="required">*</span></label>
+            <div class="experience-cards" id="experienceCards">
+              <label class="experience-card">
+                <input type="radio" name="testing_experience" value="Beginner" required>
+                <div class="experience-card-inner">
+                  <div class="experience-title">Beginner</div>
+                  <div class="experience-desc">New to testing. You use apps casually and notice when things feel off or don't work as expected.</div>
+                </div>
+              </label>
+              <label class="experience-card">
+                <input type="radio" name="testing_experience" value="Hobbyist">
+                <div class="experience-card-inner">
+                  <div class="experience-title">Hobbyist</div>
+                  <div class="experience-desc">You test regularly for fun or personal projects. You can reproduce bugs and describe them clearly.</div>
+                </div>
+              </label>
+              <label class="experience-card">
+                <input type="radio" name="testing_experience" value="Professional">
+                <div class="experience-card-inner">
+                  <div class="experience-title">Professional</div>
+                  <div class="experience-desc">QA or testing is part of your work. You write detailed bug reports, use testing tools, and follow structured processes.</div>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div class="form-group">
@@ -74,16 +91,31 @@
           </div>
 
           <div class="form-group">
-            <label for="bug_report_sample">Describe a bug you recently found <span class="required">*</span></label>
-            <textarea id="bug_report_sample" name="bug_report_sample" required rows="4" placeholder="Tell us about a bug you encountered. What happened? What did you expect to happen?"></textarea>
+            <label for="bug_report_sample">Describe a bug you recently found <span class="optional">(optional)</span></label>
+            <textarea id="bug_report_sample" name="bug_report_sample" rows="4" placeholder="Tell us about a bug you encountered. What happened? What did you expect to happen?"></textarea>
           </div>
 
           <div class="form-group">
-            <label class="checkbox-label nda-label">
-              <input type="checkbox" name="nda_signed" id="nda_signed" required>
-              <span class="checkmark"></span>
-              I agree to sign a Non-Disclosure Agreement (NDA) before accessing beta builds.&nbsp;<span class="required">*</span>
-            </label>
+            <div class="nda-question">
+              <div class="nda-question-text">Are you willing to sign an NDA in order to start testing the apps? <span class="required">*</span></div>
+              <div class="nda-question-sub">A Non-Disclosure Agreement keeps our unreleased software confidential.</div>
+              <div class="nda-options">
+                <label class="nda-option">
+                  <input type="radio" name="nda_signed" value="yes" required>
+                  <div class="nda-option-inner">
+                    <span class="nda-option-icon">&#10003;</span>
+                    Yes, I'm willing to sign an NDA
+                  </div>
+                </label>
+                <label class="nda-option nda-option-no">
+                  <input type="radio" name="nda_signed" value="no">
+                  <div class="nda-option-inner">
+                    <span class="nda-option-icon">&#10005;</span>
+                    No, I prefer not to
+                  </div>
+                </label>
+              </div>
+            </div>
           </div>
 
           <button type="submit" class="btn-primary" id="submitBtn">

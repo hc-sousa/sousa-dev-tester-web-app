@@ -131,13 +131,15 @@ app.post('/api/step2', async (req, res) => {
   try {
     const { token, testing_experience, device_models, occupation, bug_report_sample, nda_signed } = req.body;
 
-    if (!token || !testing_experience || !bug_report_sample || nda_signed !== 'on') {
-      return res.status(400).send('Please fill in all required fields and agree to the NDA.');
+    const validExperience = ['Beginner', 'Hobbyist', 'Professional'];
+    const validNda = ['yes', 'no'];
+
+    if (!token || !testing_experience || !validExperience.includes(testing_experience)) {
+      return res.status(400).send('Please select a valid testing experience level.');
     }
 
-    const validExperience = ['Beginner', 'Hobbyist', 'Professional'];
-    if (!validExperience.includes(testing_experience)) {
-      return res.status(400).send('Invalid testing experience level.');
+    if (!nda_signed || !validNda.includes(nda_signed)) {
+      return res.status(400).send('Please answer the NDA question.');
     }
 
     const result = await pool.query(
@@ -150,7 +152,7 @@ app.post('/api/step2', async (req, res) => {
         step2_token = NULL,
         updated_at = NOW()
        WHERE step2_token = $6`,
-      [testing_experience, device_models || null, occupation || null, bug_report_sample, true, token]
+      [testing_experience, device_models || null, occupation || null, bug_report_sample || null, nda_signed === 'yes', token]
     );
 
     if (result.rowCount === 0) {
