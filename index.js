@@ -11,7 +11,29 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+const ALLOWED_DEVICES = ['Windows', 'Mac', 'iPhone', 'Android', 'Other'];
+
 const step2Template = fs.readFileSync(path.join(__dirname, 'views', 'step2.html'), 'utf8');
+
+async function initDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS testers (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      birth_year INTEGER NOT NULL,
+      devices JSONB NOT NULL DEFAULT '[]',
+      other_device_details VARCHAR(255),
+      testing_experience VARCHAR(50),
+      device_models VARCHAR(255),
+      occupation VARCHAR(255),
+      bug_report_sample TEXT,
+      nda_signed BOOLEAN DEFAULT FALSE,
+      step2_token VARCHAR(64),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -44,7 +66,8 @@ app.post('/api/step1', async (req, res) => {
       return res.status(400).send('Please enter a valid year of birth.');
     }
 
-    const deviceArray = Array.isArray(devices) ? devices : devices ? [devices] : [];
+    const rawDevices = Array.isArray(devices) ? devices : devices ? [devices] : [];
+    const deviceArray = rawDevices.filter(d => ALLOWED_DEVICES.includes(d));
     if (deviceArray.length === 0) {
       return res.status(400).send('Please select at least one device.');
     }
@@ -86,12 +109,16 @@ app.get('/complete-profile', async (req, res) => {
     const tester = result.rows[0];
     const devices = typeof tester.devices === 'string' ? JSON.parse(tester.devices) : tester.devices;
 
+    const safeData = JSON.stringify({
+      devices: devices,
+      otherDetails: tester.other_device_details || ''
+    });
+
     let html = step2Template;
     html = html.replace('{{TOKEN}}', escapeHtml(token));
     html = html.replace('{{EMAIL}}', escapeHtml(tester.email));
     html = html.replace('{{BIRTH_YEAR}}', escapeHtml(String(tester.birth_year)));
-    html = html.replace('{{DEVICES_JSON}}', JSON.stringify(devices));
-    html = html.replace('{{OTHER_DEVICE_DETAILS}}', escapeHtml(tester.other_device_details || ''));
+    html = html.replace('{{SAFE_DATA_JSON}}', safeData.replace(/</g, '\\u003c'));
 
     res.send(html);
   } catch (err) {
@@ -141,6 +168,13 @@ app.get('/success', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'success.html'));
 });
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server running on port ${port}`);
-});
+initDatabase()
+  .then(() => {
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Server running on port ${port}`);
+    });
+  })
+  .catch(err => {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
+  });

@@ -82,15 +82,15 @@
     </div>
   </div>
 
+  <script id="tester-data" type="application/json">{{SAFE_DATA_JSON}}</script>
   <script>
-    const devices = {{DEVICES_JSON}};
-    const otherDetails = "{{OTHER_DEVICE_DETAILS}}";
+    const data = JSON.parse(document.getElementById('tester-data').textContent);
     const tagsContainer = document.getElementById('deviceTags');
 
-    devices.forEach(device => {
+    data.devices.forEach(function(device) {
       const tag = document.createElement('span');
       tag.className = 'device-tag';
-      tag.textContent = device === 'Other' && otherDetails ? `Other (${otherDetails})` : device;
+      tag.textContent = device === 'Other' && data.otherDetails ? 'Other (' + data.otherDetails + ')' : device;
       tagsContainer.appendChild(tag);
     });
 
