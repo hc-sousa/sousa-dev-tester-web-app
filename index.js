@@ -605,12 +605,18 @@ app.post('/portal/task/:taskId/submit/:subtaskId', upload.single('screenshot'), 
     const screenshotPath = req.file ? req.file.filename : null;
 
     const existing = await pool.query(
-      'SELECT id, screenshot_path FROM submissions WHERE subtask_id = $1 AND tester_id = $2',
+      'SELECT id, screenshot_path, status FROM submissions WHERE subtask_id = $1 AND tester_id = $2',
       [subtaskId, testerId]
     );
 
     if (existing.rows.length > 0) {
       const old = existing.rows[0];
+      if (old.status === 'accepted') {
+        return res.status(400).send('This submission has already been accepted and cannot be changed.');
+      }
+      if (old.status === 'in_review') {
+        return res.status(400).send('This submission is currently in review and cannot be changed.');
+      }
       const updateScreenshot = screenshotPath || old.screenshot_path;
       await pool.query(
         `UPDATE submissions SET workflow_text = $1, screenshot_path = $2, status = 'submitted', admin_notes = NULL, updated_at = NOW()
@@ -630,6 +636,19 @@ app.post('/portal/task/:taskId/submit/:subtaskId', upload.single('screenshot'), 
     console.error('Submit error:', err);
     res.status(500).send('Failed to submit.');
   }
+});
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).send('File too large. Maximum size is 10MB.');
+    }
+    return res.status(400).send('File upload error: ' + err.message);
+  }
+  if (err && err.message === 'Only image files are allowed.') {
+    return res.status(400).send('Only image files (PNG, JPG, GIF, WebP) are allowed.');
+  }
+  next(err);
 });
 
 app.post('/portal/task/:taskId/remove/:subtaskId', async (req, res) => {
