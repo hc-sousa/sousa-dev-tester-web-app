@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beta Tester Sign-Up</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="step-indicator">
+        <div class="step active">1</div>
+        <div class="step-line"></div>
+        <div class="step">2</div>
+      </div>
+      <h1>Join Our Beta Program</h1>
+      <p class="subtitle">Sign up in seconds. We just need a few basics to get started.</p>
+
+      <form action="/api/step1" method="POST" id="step1Form">
+        <div class="form-group">
+          <label for="email">Email Address <span class="required">*</span></label>
+          <input type="email" id="email" name="email" required placeholder="you@example.com">
+        </div>
+
+        <div class="form-group">
+          <label for="birth_year">Year of Birth <span class="required">*</span></label>
+          <input type="number" id="birth_year" name="birth_year" required min="1920" max="2010" placeholder="e.g. 1995">
+        </div>
+
+        <div class="form-group">
+          <label>Which devices do you use? <span class="required">*</span></label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" name="devices" value="Windows">
+              <span class="checkmark"></span>
+              Windows
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="devices" value="Mac">
+              <span class="checkmark"></span>
+              Mac
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="devices" value="iPhone">
+              <span class="checkmark"></span>
+              iPhone
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="devices" value="Android">
+              <span class="checkmark"></span>
+              Android
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="devices" value="Other" id="otherCheckbox">
+              <span class="checkmark"></span>
+              Other
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="otherDeviceGroup" style="display: none;">
+          <label for="other_device_details">Which device?</label>
+          <input type="text" id="other_device_details" name="other_device_details" placeholder="e.g. Linux, ChromeOS, Steam Deck">
+        </div>
+
+        <button type="submit" class="btn-primary" id="submitBtn">
+          <span class="btn-text">Continue</span>
+          <span class="btn-loading" style="display:none;">Saving...</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const otherCheckbox = document.getElementById('otherCheckbox');
+    const otherDeviceGroup = document.getElementById('otherDeviceGroup');
+
+    otherCheckbox.addEventListener('change', function() {
+      otherDeviceGroup.style.display = this.checked ? 'block' : 'none';
+      if (!this.checked) {
+        document.getElementById('other_device_details').value = '';
+      }
+    });
+
+    document.getElementById('step1Form').addEventListener('submit', function(e) {
+      const checkboxes = document.querySelectorAll('input[name="devices"]:checked');
+      if (checkboxes.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one device.');
+        return;
+      }
+
+      const btn = document.getElementById('submitBtn');
+      btn.querySelector('.btn-text').style.display = 'none';
+      btn.querySelector('.btn-loading').style.display = 'inline';
+      btn.disabled = true;
+    });
+  </script>
+</body>
+</html>
