@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tasks — Admin — Sousa Dev</title>
+  <link rel="icon" href="https://sousadev.com/assets/favicon/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <div class="admin-wrapper">
+
+    <header class="admin-header">
+      <a href="https://sousadev.com" target="_blank" class="admin-logo-wrap">
+        <img src="https://sousadev.com/assets/images/logo.png" alt="Sousa Dev">
+        <span class="admin-brand">Sousa Dev</span>
+      </a>
+      <div class="admin-header-right">
+        <span class="admin-badge">Admin</span>
+        <a href="/admin/logout" class="btn-logout">Logout</a>
+      </div>
+    </header>
+
+    <nav class="admin-tabs">
+      <a href="/admin/dashboard" class="admin-tab">Testers</a>
+      <a href="/admin/tasks" class="admin-tab active">Tasks</a>
+      <a href="/admin/reviews" class="admin-tab">Reviews</a>
+    </nav>
+
+    <main class="admin-content">
+
+      <div class="admin-page-header">
+        <div>
+          <h1 class="admin-page-title">Task <span>Management</span></h1>
+          <p class="admin-page-subtitle">Create tasks, define subtasks with compensation, and assign testers</p>
+        </div>
+        <button class="btn-export" onclick="document.getElementById('createTaskModal').classList.add('open'); document.body.style.overflow='hidden'">+ Create Task</button>
+      </div>
+
+      <div class="table-section">
+        <div class="table-toolbar">
+          <div class="table-toolbar-left">
+            <div class="table-toolbar-title">All Tasks</div>
+            <div class="table-toolbar-count">{{TASK_COUNT}} tasks total</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Subtasks</th>
+                <th>Testers</th>
+                <th>Total Value</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {{TASK_ROWS}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+
+    <footer class="admin-footer">
+      &copy; 2026 <a href="https://sousadev.com" target="_blank">Sousa Dev</a> &mdash; IT Solutions
+    </footer>
+
+  </div>
+
+  <div class="adm-overlay" id="createTaskModal" role="dialog" aria-modal="true">
+    <div class="adm-modal adm-modal--lg">
+      <div class="adm-modal-header">
+        <div class="adm-modal-title">+ Create New Task</div>
+        <button class="adm-modal-close" onclick="document.getElementById('createTaskModal').classList.remove('open'); document.body.style.overflow=''" aria-label="Close">&times;</button>
+      </div>
+      <form method="POST" action="/admin/tasks/create">
+        <div class="adm-modal-body">
+          <div class="adm-form-group">
+            <label for="task_title">Task Title</label>
+            <input type="text" id="task_title" name="title" required placeholder="e.g. Test checkout flow on mobile">
+          </div>
+          <div class="adm-form-group">
+            <label for="task_desc">Short Description</label>
+            <input type="text" id="task_desc" name="description" placeholder="Brief summary of what testers should do">
+          </div>
+          <div class="adm-form-group">
+            <label for="task_markdown">Markdown Content</label>
+            <textarea id="task_markdown" name="markdown_content" rows="12" required placeholder="## Section Title [$10]&#10;Description of what to test in this section...&#10;&#10;## Another Section [$15]&#10;Instructions for this part of the testing..."></textarea>
+            <div class="adm-form-hint">Use <code>## Heading [$amount]</code> to define subtasks with compensation values.</div>
+          </div>
+        </div>
+        <div class="adm-modal-footer">
+          <button type="button" class="adm-btn-cancel" onclick="document.getElementById('createTaskModal').classList.remove('open'); document.body.style.overflow=''">Cancel</button>
+          <button type="submit" class="adm-btn-save">Create Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="adm-toast" id="adm-toast"></div>
+
+  <script>
+    (function() {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('success')) {
+        const t = document.getElementById('adm-toast');
+        const msgs = { created: 'Task created', deleted: 'Task deleted', updated: 'Task updated' };
+        t.textContent = msgs[p.get('success')] || 'Done';
+        t.className = 'adm-toast adm-toast--success show';
+        setTimeout(() => { t.className = 'adm-toast'; }, 3200);
+        window.history.replaceState({}, '', '/admin/tasks');
+      }
+    })();
+
+    document.getElementById('createTaskModal').addEventListener('click', function(e) {
+      if (e.target === this) { this.classList.remove('open'); document.body.style.overflow = ''; }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { document.getElementById('createTaskModal').classList.remove('open'); document.body.style.overflow = ''; }
+    });
+  </script>
+</body>
+</html>

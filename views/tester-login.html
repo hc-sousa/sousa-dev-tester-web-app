@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tester Login — Sousa Dev</title>
+  <link rel="icon" href="https://sousadev.com/assets/favicon/apple-touch-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="page-wrapper">
+
+    <header class="site-header">
+      <a href="https://sousadev.com" target="_blank" class="logo-link">
+        <img src="https://sousadev.com/assets/images/logo.png" alt="Sousa Dev Logo">
+        <span class="brand-name">Sousa Dev</span>
+      </a>
+      <div class="header-badge">Beta Program</div>
+    </header>
+
+    <div class="container">
+      <div class="card">
+        <h1>Welcome <span class="accent">Back</span></h1>
+        <p class="subtitle">Log in with the email you used to sign up.</p>
+
+        <div class="login-error {{ERROR_CLASS}}">{{ERROR_MSG}}</div>
+
+        <form action="/login" method="POST" id="loginForm">
+          <div class="form-group">
+            <label for="email">Email Address <span class="required">*</span></label>
+            <input type="email" id="email" name="email" required placeholder="you@example.com" autocomplete="email">
+          </div>
+
+          <button type="submit" class="btn-primary" id="submitBtn">
+            <span>Log In &rarr;</span>
+          </button>
+        </form>
+
+        <div class="login-footer-link">
+          <span>Don't have an account?</span>
+          <a href="/">Sign up here</a>
+        </div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      &copy; 2026 <a href="https://sousadev.com" target="_blank">Sousa Dev</a> &mdash; IT Solutions
+    </footer>
+
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', function () {
+      const btn = document.getElementById('submitBtn');
+      btn.innerHTML = '<span>Logging in&hellip;</span>';
+      btn.disabled = true;
+    });
+  </script>
+</body>
+</html>

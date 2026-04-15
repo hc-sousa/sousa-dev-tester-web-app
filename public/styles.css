@@ -318,6 +318,7 @@ label {
 input[type="email"],
 input[type="text"],
 input[type="number"],
+input[type="password"],
 select,
 textarea {
   width: 100%;
@@ -336,6 +337,7 @@ textarea {
 input[type="email"]::placeholder,
 input[type="text"]::placeholder,
 input[type="number"]::placeholder,
+input[type="password"]::placeholder,
 textarea::placeholder {
   color: var(--text-muted);
 }

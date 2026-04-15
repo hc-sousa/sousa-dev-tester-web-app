@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Paid — Sousa Dev</title>
+  <link rel="icon" href="https://sousadev.com/assets/favicon/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/portal.css">
+</head>
+<body>
+  <div class="portal-wrapper">
+
+    <header class="portal-header">
+      <a href="https://sousadev.com" target="_blank" class="portal-logo-wrap">
+        <img src="https://sousadev.com/assets/images/logo.png" alt="Sousa Dev">
+        <span class="portal-brand">Sousa Dev</span>
+      </a>
+      <nav class="portal-nav">
+        <a href="/portal" class="portal-nav-link">Dashboard</a>
+        <a href="/portal/get-paid" class="portal-nav-link active">Get Paid</a>
+      </nav>
+      <div class="portal-header-right">
+        <span class="portal-user">{{EMAIL}}</span>
+        <a href="/logout" class="btn-logout">Logout</a>
+      </div>
+    </header>
+
+    <main class="portal-content">
+
+      <div class="portal-page-header">
+        <div>
+          <h1 class="portal-page-title">Get <span>Paid</span></h1>
+          <p class="portal-page-subtitle">Request your earnings once tasks are accepted</p>
+        </div>
+      </div>
+
+      <div class="portal-earnings-grid portal-earnings-grid--wide">
+        <div class="portal-earn-card portal-earn-card--confirmed">
+          <div class="portal-earn-icon">💰</div>
+          <div>
+            <div class="portal-earn-value">${{CONFIRMED_EARNINGS}}</div>
+            <div class="portal-earn-label">Available for Payout</div>
+          </div>
+        </div>
+        <div class="portal-earn-card portal-earn-card--hold">
+          <div class="portal-earn-icon">⏳</div>
+          <div>
+            <div class="portal-earn-value">${{ON_HOLD_EARNINGS}}</div>
+            <div class="portal-earn-label">On Hold (Awaiting Review)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="getpaid-instructions card">
+        <h2>How to Get Paid</h2>
+
+        <div class="getpaid-step">
+          <div class="getpaid-step-num">1</div>
+          <div>
+            <h3>Confirm your earnings</h3>
+            <p>Make sure your tasks have been accepted by the admin and the earnings show as "Available for Payout" above.</p>
+          </div>
+        </div>
+
+        <div class="getpaid-step">
+          <div class="getpaid-step-num">2</div>
+          <div>
+            <h3>Email our finance team</h3>
+            <p>Send an email to <a href="mailto:finance@sousadev.com" class="accent-link">finance@sousadev.com</a> with your preferred payment details.</p>
+          </div>
+        </div>
+
+        <div class="getpaid-step">
+          <div class="getpaid-step-num">3</div>
+          <div>
+            <h3>Include your payment preference</h3>
+            <p>We support the following payment methods:</p>
+            <div class="payment-methods">
+              <div class="payment-method">
+                <span class="payment-icon">🅿️</span>
+                <div>
+                  <strong>PayPal</strong>
+                  <span>Send your PayPal email address</span>
+                </div>
+              </div>
+              <div class="payment-method">
+                <span class="payment-icon">🔄</span>
+                <div>
+                  <strong>Revolut</strong>
+                  <span>Send your Revolut tag or phone number</span>
+                </div>
+              </div>
+              <div class="payment-method">
+                <span class="payment-icon">🏦</span>
+                <div>
+                  <strong>Bank Transfer</strong>
+                  <span>Send your IBAN / account details (availability may vary by country)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="getpaid-note">
+          <strong>Note:</strong> Payments are processed within 5-10 business days after your request. If you have questions, reach out to <a href="mailto:finance@sousadev.com" class="accent-link">finance@sousadev.com</a>.
+        </div>
+      </div>
+
+    </main>
+
+    <footer class="portal-footer">
+      &copy; 2026 <a href="https://sousadev.com" target="_blank">Sousa Dev</a> &mdash; IT Solutions
+    </footer>
+
+  </div>
+</body>
+</html>

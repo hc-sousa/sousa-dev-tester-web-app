@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
 
 const app = express();
 const port = 5000;
@@ -17,12 +18,48 @@ const ALLOWED_DEVICES = ['Windows', 'Mac', 'iPhone', 'Android', 'Other'];
 const step2Template = fs.readFileSync(path.join(__dirname, 'views', 'step2.html'), 'utf8');
 const adminLoginTemplate = fs.readFileSync(path.join(__dirname, 'views', 'admin-login.html'), 'utf8');
 const adminDashTemplate = fs.readFileSync(path.join(__dirname, 'views', 'admin-dashboard.html'), 'utf8');
+const testerLoginTemplate = fs.readFileSync(path.join(__dirname, 'views', 'tester-login.html'), 'utf8');
+const portalDashTemplate = fs.readFileSync(path.join(__dirname, 'views', 'portal-dashboard.html'), 'utf8');
+const portalTaskTemplate = fs.readFileSync(path.join(__dirname, 'views', 'portal-task.html'), 'utf8');
+const portalGetPaidTemplate = fs.readFileSync(path.join(__dirname, 'views', 'portal-getpaid.html'), 'utf8');
+const adminTasksTemplate = fs.readFileSync(path.join(__dirname, 'views', 'admin-tasks.html'), 'utf8');
+const adminTaskDetailTemplate = fs.readFileSync(path.join(__dirname, 'views', 'admin-task-detail.html'), 'utf8');
+const adminReviewsTemplate = fs.readFileSync(path.join(__dirname, 'views', 'admin-reviews.html'), 'utf8');
 
 const adminSessions = new Set();
+const testerSessions = new Map();
+
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${uuidv4()}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Only image files are allowed.'));
+  }
+});
 
 function createAdminSession() {
   const token = crypto.randomBytes(32).toString('hex');
   adminSessions.add(token);
+  return token;
+}
+
+function createTesterSession(testerId) {
+  const token = crypto.randomBytes(32).toString('hex');
+  testerSessions.set(token, testerId);
   return token;
 }
 
@@ -35,6 +72,13 @@ function isAdminAuthenticated(req) {
   if (!isAdminEnabled()) return false;
   const cookies = parseCookies(req);
   return cookies['admin_token'] && adminSessions.has(cookies['admin_token']);
+}
+
+function getTesterFromSession(req) {
+  const cookies = parseCookies(req);
+  const token = cookies['tester_token'];
+  if (!token) return null;
+  return testerSessions.get(token) || null;
 }
 
 function parseCookies(req) {
@@ -65,6 +109,55 @@ async function initDatabase() {
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id SERIAL PRIMARY KEY,
+      title VARCHAR(500) NOT NULL,
+      description TEXT,
+      markdown_content TEXT NOT NULL,
+      status VARCHAR(20) DEFAULT 'active',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS subtasks (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      title VARCHAR(500) NOT NULL,
+      description TEXT,
+      sort_order INTEGER DEFAULT 0,
+      compensation DECIMAL(10,2) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS task_assignments (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      tester_id INTEGER NOT NULL REFERENCES testers(id) ON DELETE CASCADE,
+      assigned_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(task_id, tester_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS submissions (
+      id SERIAL PRIMARY KEY,
+      subtask_id INTEGER NOT NULL REFERENCES subtasks(id) ON DELETE CASCADE,
+      tester_id INTEGER NOT NULL REFERENCES testers(id) ON DELETE CASCADE,
+      workflow_text TEXT,
+      screenshot_path VARCHAR(500),
+      status VARCHAR(20) DEFAULT 'submitted',
+      admin_notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(subtask_id, tester_id)
+    )
+  `);
 }
 
 function escapeHtml(str) {
@@ -77,9 +170,47 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+function parseMarkdownToSubtasks(markdown) {
+  const lines = markdown.split('\n');
+  const subtasks = [];
+  let current = null;
+
+  for (const line of lines) {
+    const headingMatch = line.match(/^##\s+(.+?)(?:\s*\[\$(\d+(?:\.\d{1,2})?)\])?\s*$/);
+    if (headingMatch) {
+      if (current) subtasks.push(current);
+      current = {
+        title: headingMatch[1].trim(),
+        description: '',
+        compensation: parseFloat(headingMatch[2] || '0')
+      };
+    } else if (current) {
+      current.description += line + '\n';
+    }
+  }
+  if (current) subtasks.push(current);
+
+  subtasks.forEach(s => { s.description = s.description.trim(); });
+  return subtasks;
+}
+
+function simpleMarkdownToHtml(text) {
+  if (!text) return '';
+  let html = escapeHtml(text);
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+  return '<p>' + html + '</p>';
+}
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
+app.use('/uploads', express.static(uploadsDir));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'step1.html'));
@@ -202,6 +333,354 @@ app.get('/success', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'success.html'));
 });
 
+// ── Tester Login ──
+app.get('/login', (req, res) => {
+  const testerId = getTesterFromSession(req);
+  if (testerId) return res.redirect('/portal');
+  let html = testerLoginTemplate;
+  html = html.replace('{{ERROR_CLASS}}', '');
+  html = html.replace('{{ERROR_MSG}}', '');
+  res.send(html);
+});
+
+app.post('/login', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    let html = testerLoginTemplate;
+    html = html.replace('{{ERROR_CLASS}}', 'visible');
+    html = html.replace('{{ERROR_MSG}}', 'Please enter your email address.');
+    return res.send(html);
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT id FROM testers WHERE email = $1 AND step2_token IS NULL AND testing_experience IS NOT NULL',
+      [email.trim().toLowerCase()]
+    );
+
+    if (result.rows.length === 0) {
+      let html = testerLoginTemplate;
+      html = html.replace('{{ERROR_CLASS}}', 'visible');
+      html = html.replace('{{ERROR_MSG}}', 'No completed account found with this email. Please sign up first.');
+      return res.send(html);
+    }
+
+    const testerId = result.rows[0].id;
+    const sessionToken = createTesterSession(testerId);
+    const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    res.setHeader('Set-Cookie', `tester_token=${sessionToken}; HttpOnly; Path=/; SameSite=Strict; Max-Age=604800${secure}`);
+    res.redirect('/portal');
+  } catch (err) {
+    console.error('Tester login error:', err);
+    res.status(500).send('Something went wrong. Please try again.');
+  }
+});
+
+app.get('/logout', (req, res) => {
+  const cookies = parseCookies(req);
+  if (cookies['tester_token']) {
+    testerSessions.delete(cookies['tester_token']);
+  }
+  res.setHeader('Set-Cookie', 'tester_token=; HttpOnly; Path=/; SameSite=Strict; Max-Age=0');
+  res.redirect('/');
+});
+
+// ── Tester Portal ──
+app.get('/portal', async (req, res) => {
+  const testerId = getTesterFromSession(req);
+  if (!testerId) return res.redirect('/login');
+
+  try {
+    const [testerRes, tasksRes, earningsRes] = await Promise.all([
+      pool.query('SELECT email FROM testers WHERE id = $1', [testerId]),
+      pool.query(`
+        SELECT t.id, t.title, t.description, t.status,
+               COUNT(st.id)::int AS total_subtasks,
+               COUNT(sub.id) FILTER (WHERE sub.status = 'accepted')::int AS accepted_count,
+               COUNT(sub.id) FILTER (WHERE sub.status IN ('submitted','in_review'))::int AS pending_count,
+               COUNT(sub.id) FILTER (WHERE sub.status = 'rejected')::int AS rejected_count
+        FROM task_assignments ta
+        JOIN tasks t ON t.id = ta.task_id
+        LEFT JOIN subtasks st ON st.task_id = t.id
+        LEFT JOIN submissions sub ON sub.subtask_id = st.id AND sub.tester_id = $1
+        WHERE ta.tester_id = $1
+        GROUP BY t.id
+        ORDER BY t.created_at DESC
+      `, [testerId]),
+      pool.query(`
+        SELECT
+          COALESCE(SUM(st.compensation) FILTER (WHERE sub.status = 'accepted'), 0) AS confirmed,
+          COALESCE(SUM(st.compensation) FILTER (WHERE sub.status IN ('submitted','in_review')), 0) AS on_hold
+        FROM submissions sub
+        JOIN subtasks st ON st.id = sub.subtask_id
+        WHERE sub.tester_id = $1
+      `, [testerId])
+    ]);
+
+    const tester = testerRes.rows[0];
+    if (!tester) return res.redirect('/login');
+
+    const earnings = earningsRes.rows[0];
+    const confirmed = parseFloat(earnings.confirmed || 0).toFixed(2);
+    const onHold = parseFloat(earnings.on_hold || 0).toFixed(2);
+    const totalEarnings = (parseFloat(confirmed) + parseFloat(onHold)).toFixed(2);
+
+    const taskCards = tasksRes.rows.map(t => {
+      const progress = t.total_subtasks > 0
+        ? Math.round((t.accepted_count / t.total_subtasks) * 100)
+        : 0;
+      const submitted = t.pending_count + t.accepted_count + t.rejected_count;
+      return `
+        <a href="/portal/task/${t.id}" class="portal-task-card">
+          <div class="portal-task-card-header">
+            <h3>${escapeHtml(t.title)}</h3>
+            <span class="portal-task-status portal-task-status--${t.status}">${t.status}</span>
+          </div>
+          <p class="portal-task-desc">${escapeHtml(t.description || '')}</p>
+          <div class="portal-task-progress">
+            <div class="portal-task-progress-bar">
+              <div class="portal-task-progress-fill" style="width:${progress}%"></div>
+            </div>
+            <span class="portal-task-progress-text">${t.accepted_count}/${t.total_subtasks} completed</span>
+          </div>
+          <div class="portal-task-stats">
+            <span class="portal-stat portal-stat--pending">${t.pending_count} in review</span>
+            <span class="portal-stat portal-stat--done">${t.accepted_count} accepted</span>
+            ${t.rejected_count > 0 ? `<span class="portal-stat portal-stat--rejected">${t.rejected_count} rejected</span>` : ''}
+          </div>
+        </a>`;
+    }).join('');
+
+    let html = portalDashTemplate;
+    html = html.replace(/\{\{EMAIL\}\}/g, escapeHtml(tester.email));
+    html = html.replace('{{CONFIRMED_EARNINGS}}', confirmed);
+    html = html.replace('{{ON_HOLD_EARNINGS}}', onHold);
+    html = html.replace('{{TOTAL_EARNINGS}}', totalEarnings);
+    html = html.replace('{{TASK_CARDS}}', taskCards || '<div class="portal-empty">No tasks assigned to you yet.</div>');
+    html = html.replace('{{TASK_COUNT}}', tasksRes.rows.length);
+
+    res.send(html);
+  } catch (err) {
+    console.error('Portal error:', err);
+    res.status(500).send('Failed to load portal.');
+  }
+});
+
+app.get('/portal/task/:id', async (req, res) => {
+  const testerId = getTesterFromSession(req);
+  if (!testerId) return res.redirect('/login');
+
+  const taskId = parseInt(req.params.id);
+  if (isNaN(taskId)) return res.status(400).send('Invalid task.');
+
+  try {
+    const assignCheck = await pool.query(
+      'SELECT 1 FROM task_assignments WHERE task_id = $1 AND tester_id = $2',
+      [taskId, testerId]
+    );
+    if (assignCheck.rows.length === 0) return res.redirect('/portal');
+
+    const [taskRes, subtasksRes] = await Promise.all([
+      pool.query('SELECT * FROM tasks WHERE id = $1', [taskId]),
+      pool.query(`
+        SELECT st.*, sub.id AS submission_id, sub.workflow_text, sub.screenshot_path,
+               sub.status AS submission_status, sub.admin_notes, sub.updated_at AS submission_updated
+        FROM subtasks st
+        LEFT JOIN submissions sub ON sub.subtask_id = st.id AND sub.tester_id = $1
+        WHERE st.task_id = $2
+        ORDER BY st.sort_order
+      `, [testerId, taskId])
+    ]);
+
+    if (taskRes.rows.length === 0) return res.redirect('/portal');
+    const task = taskRes.rows[0];
+
+    const totalComp = subtasksRes.rows.reduce((sum, s) => sum + parseFloat(s.compensation || 0), 0);
+
+    const subtasksHtml = subtasksRes.rows.map((st, idx) => {
+      const hasSubmission = !!st.submission_id;
+      const status = st.submission_status || 'not_started';
+      const statusLabel = {
+        'not_started': 'Not Started',
+        'submitted': 'Submitted',
+        'in_review': 'In Review',
+        'accepted': 'Accepted',
+        'rejected': 'Rejected'
+      }[status] || status;
+      const statusClass = status.replace('_', '-');
+
+      let submissionContent = '';
+      if (hasSubmission) {
+        submissionContent = `
+          <div class="sub-submission">
+            <div class="sub-submission-header">
+              <span class="sub-status sub-status--${statusClass}">${statusLabel}</span>
+              ${status === 'accepted' ? `<span class="sub-earned">+$${parseFloat(st.compensation).toFixed(2)}</span>` : ''}
+            </div>
+            ${st.workflow_text ? `<div class="sub-workflow"><strong>Your workflow:</strong><p>${escapeHtml(st.workflow_text)}</p></div>` : ''}
+            ${st.screenshot_path ? `<div class="sub-screenshot"><strong>Screenshot:</strong><br><a href="/uploads/${escapeHtml(st.screenshot_path)}" target="_blank"><img src="/uploads/${escapeHtml(st.screenshot_path)}" alt="Screenshot"></a></div>` : ''}
+            ${st.admin_notes ? `<div class="sub-notes"><strong>Admin notes:</strong><p>${escapeHtml(st.admin_notes)}</p></div>` : ''}
+            ${status === 'rejected' ? `
+              <form action="/portal/task/${task.id}/submit/${st.id}" method="POST" enctype="multipart/form-data" class="sub-form">
+                <div class="sub-form-group">
+                  <label>Update your workflow description</label>
+                  <textarea name="workflow_text" rows="4" placeholder="Describe the steps you took...">${escapeHtml(st.workflow_text || '')}</textarea>
+                </div>
+                <div class="sub-form-group">
+                  <label>Update screenshot</label>
+                  <input type="file" name="screenshot" accept="image/*">
+                </div>
+                <button type="submit" class="btn-submit-subtask">Resubmit</button>
+              </form>
+            ` : ''}
+            ${(status === 'submitted' || status === 'in_review') ? `
+              <form action="/portal/task/${task.id}/remove/${st.id}" method="POST" class="sub-remove-form">
+                <button type="submit" class="btn-remove-submission" onclick="return confirm('Remove this submission?')">Remove Submission</button>
+              </form>
+            ` : ''}
+          </div>`;
+      } else {
+        submissionContent = `
+          <form action="/portal/task/${task.id}/submit/${st.id}" method="POST" enctype="multipart/form-data" class="sub-form">
+            <div class="sub-form-group">
+              <label>Describe your testing workflow</label>
+              <textarea name="workflow_text" rows="4" required placeholder="Describe the steps you took to test this section..."></textarea>
+            </div>
+            <div class="sub-form-group">
+              <label>Upload a screenshot <span class="optional">(optional)</span></label>
+              <input type="file" name="screenshot" accept="image/*">
+            </div>
+            <button type="submit" class="btn-submit-subtask">Submit</button>
+          </form>`;
+      }
+
+      return `
+        <div class="subtask-card" id="subtask-${st.id}">
+          <div class="subtask-header">
+            <div class="subtask-number">${idx + 1}</div>
+            <div class="subtask-info">
+              <h3>${escapeHtml(st.title)}</h3>
+              <span class="subtask-comp">$${parseFloat(st.compensation).toFixed(2)}</span>
+            </div>
+          </div>
+          ${st.description ? `<div class="subtask-desc">${simpleMarkdownToHtml(st.description)}</div>` : ''}
+          ${submissionContent}
+        </div>`;
+    }).join('');
+
+    let html = portalTaskTemplate;
+    html = html.replace(/\{\{TASK_ID\}\}/g, task.id);
+    html = html.replace('{{TASK_TITLE}}', escapeHtml(task.title));
+    html = html.replace('{{TASK_DESC}}', escapeHtml(task.description || ''));
+    html = html.replace('{{TOTAL_COMP}}', totalComp.toFixed(2));
+    html = html.replace('{{SUBTASK_COUNT}}', subtasksRes.rows.length);
+    html = html.replace('{{SUBTASKS_HTML}}', subtasksHtml);
+
+    res.send(html);
+  } catch (err) {
+    console.error('Task detail error:', err);
+    res.status(500).send('Failed to load task.');
+  }
+});
+
+app.post('/portal/task/:taskId/submit/:subtaskId', upload.single('screenshot'), async (req, res) => {
+  const testerId = getTesterFromSession(req);
+  if (!testerId) return res.redirect('/login');
+
+  const taskId = parseInt(req.params.taskId);
+  const subtaskId = parseInt(req.params.subtaskId);
+  if (isNaN(taskId) || isNaN(subtaskId)) return res.status(400).send('Invalid IDs.');
+
+  try {
+    const assignCheck = await pool.query(
+      'SELECT 1 FROM task_assignments WHERE task_id = $1 AND tester_id = $2',
+      [taskId, testerId]
+    );
+    if (assignCheck.rows.length === 0) return res.redirect('/portal');
+
+    const stCheck = await pool.query('SELECT 1 FROM subtasks WHERE id = $1 AND task_id = $2', [subtaskId, taskId]);
+    if (stCheck.rows.length === 0) return res.status(404).send('Subtask not found.');
+
+    const { workflow_text } = req.body;
+    const screenshotPath = req.file ? req.file.filename : null;
+
+    const existing = await pool.query(
+      'SELECT id, screenshot_path FROM submissions WHERE subtask_id = $1 AND tester_id = $2',
+      [subtaskId, testerId]
+    );
+
+    if (existing.rows.length > 0) {
+      const old = existing.rows[0];
+      const updateScreenshot = screenshotPath || old.screenshot_path;
+      await pool.query(
+        `UPDATE submissions SET workflow_text = $1, screenshot_path = $2, status = 'submitted', admin_notes = NULL, updated_at = NOW()
+         WHERE id = $3`,
+        [workflow_text || null, updateScreenshot, old.id]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO submissions (subtask_id, tester_id, workflow_text, screenshot_path, status)
+         VALUES ($1, $2, $3, $4, 'submitted')`,
+        [subtaskId, testerId, workflow_text || null, screenshotPath]
+      );
+    }
+
+    res.redirect(`/portal/task/${taskId}#subtask-${subtaskId}`);
+  } catch (err) {
+    console.error('Submit error:', err);
+    res.status(500).send('Failed to submit.');
+  }
+});
+
+app.post('/portal/task/:taskId/remove/:subtaskId', async (req, res) => {
+  const testerId = getTesterFromSession(req);
+  if (!testerId) return res.redirect('/login');
+
+  const taskId = parseInt(req.params.taskId);
+  const subtaskId = parseInt(req.params.subtaskId);
+
+  try {
+    await pool.query(
+      `DELETE FROM submissions WHERE subtask_id = $1 AND tester_id = $2 AND status IN ('submitted','in_review')`,
+      [subtaskId, testerId]
+    );
+    res.redirect(`/portal/task/${taskId}`);
+  } catch (err) {
+    console.error('Remove submission error:', err);
+    res.status(500).send('Failed to remove submission.');
+  }
+});
+
+app.get('/portal/get-paid', async (req, res) => {
+  const testerId = getTesterFromSession(req);
+  if (!testerId) return res.redirect('/login');
+
+  try {
+    const [testerRes, earningsRes] = await Promise.all([
+      pool.query('SELECT email FROM testers WHERE id = $1', [testerId]),
+      pool.query(`
+        SELECT
+          COALESCE(SUM(st.compensation) FILTER (WHERE sub.status = 'accepted'), 0) AS confirmed,
+          COALESCE(SUM(st.compensation) FILTER (WHERE sub.status IN ('submitted','in_review')), 0) AS on_hold
+        FROM submissions sub
+        JOIN subtasks st ON st.id = sub.subtask_id
+        WHERE sub.tester_id = $1
+      `, [testerId])
+    ]);
+
+    const earnings = earningsRes.rows[0];
+    let html = portalGetPaidTemplate;
+    html = html.replace(/\{\{EMAIL\}\}/g, escapeHtml(testerRes.rows[0]?.email || ''));
+    html = html.replace('{{CONFIRMED_EARNINGS}}', parseFloat(earnings.confirmed || 0).toFixed(2));
+    html = html.replace('{{ON_HOLD_EARNINGS}}', parseFloat(earnings.on_hold || 0).toFixed(2));
+    res.send(html);
+  } catch (err) {
+    console.error('Get paid error:', err);
+    res.status(500).send('Failed to load page.');
+  }
+});
+
+// ── Admin Routes ──
 app.get('/admin', (req, res) => {
   if (!isAdminEnabled()) {
     return res.status(403).send(`
@@ -494,6 +973,317 @@ app.post('/admin/tester/:id/delete', async (req, res) => {
   } catch (err) {
     console.error('Delete tester error:', err);
     res.status(500).send('Failed to delete tester.');
+  }
+});
+
+// ── Admin Tasks ──
+app.get('/admin/tasks', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  try {
+    const tasksRes = await pool.query(`
+      SELECT t.*,
+             COUNT(DISTINCT st.id)::int AS subtask_count,
+             COUNT(DISTINCT ta.tester_id)::int AS tester_count,
+             COALESCE(SUM(st.compensation), 0) AS total_compensation
+      FROM tasks t
+      LEFT JOIN subtasks st ON st.task_id = t.id
+      LEFT JOIN task_assignments ta ON ta.task_id = t.id
+      GROUP BY t.id
+      ORDER BY t.created_at DESC
+    `);
+
+    const taskRows = tasksRes.rows.map(t => {
+      const date = new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      return `
+        <tr>
+          <td><a href="/admin/tasks/${t.id}" class="task-link">${escapeHtml(t.title)}</a></td>
+          <td>${t.subtask_count}</td>
+          <td>${t.tester_count}</td>
+          <td>$${parseFloat(t.total_compensation).toFixed(2)}</td>
+          <td><span class="badge badge-${t.status === 'active' ? 'complete' : 'pending'}">${t.status}</span></td>
+          <td>${date}</td>
+          <td>
+            <div class="td-actions">
+              <a href="/admin/tasks/${t.id}" class="btn-action btn-action--edit" title="View/Edit">✏️</a>
+              <form method="POST" action="/admin/tasks/${t.id}/delete" style="margin:0">
+                <button type="submit" class="btn-action btn-action--delete" title="Delete" onclick="return confirm('Delete this task and all its data?')">🗑️</button>
+              </form>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    let html = adminTasksTemplate;
+    html = html.replace('{{TASK_ROWS}}', taskRows || '<tr><td colspan="7" class="table-empty" style="display:table-cell">No tasks created yet.</td></tr>');
+    html = html.replace('{{TASK_COUNT}}', tasksRes.rows.length);
+
+    res.send(html);
+  } catch (err) {
+    console.error('Admin tasks error:', err);
+    res.status(500).send('Failed to load tasks.');
+  }
+});
+
+app.post('/admin/tasks/create', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  const { title, description, markdown_content } = req.body;
+  if (!title || !markdown_content) return res.status(400).send('Title and markdown content are required.');
+
+  try {
+    const taskRes = await pool.query(
+      'INSERT INTO tasks (title, description, markdown_content) VALUES ($1, $2, $3) RETURNING id',
+      [title.trim(), description || null, markdown_content]
+    );
+    const taskId = taskRes.rows[0].id;
+
+    const subtasks = parseMarkdownToSubtasks(markdown_content);
+    for (let i = 0; i < subtasks.length; i++) {
+      await pool.query(
+        'INSERT INTO subtasks (task_id, title, description, sort_order, compensation) VALUES ($1, $2, $3, $4, $5)',
+        [taskId, subtasks[i].title, subtasks[i].description, i, subtasks[i].compensation]
+      );
+    }
+
+    res.redirect(`/admin/tasks/${taskId}?success=created`);
+  } catch (err) {
+    console.error('Create task error:', err);
+    res.status(500).send('Failed to create task.');
+  }
+});
+
+app.get('/admin/tasks/:id', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  const taskId = parseInt(req.params.id);
+  if (isNaN(taskId)) return res.status(400).send('Invalid task ID.');
+
+  try {
+    const [taskRes, subtasksRes, assignmentsRes, allTestersRes] = await Promise.all([
+      pool.query('SELECT * FROM tasks WHERE id = $1', [taskId]),
+      pool.query('SELECT * FROM subtasks WHERE task_id = $1 ORDER BY sort_order', [taskId]),
+      pool.query(`
+        SELECT ta.*, t.email
+        FROM task_assignments ta
+        JOIN testers t ON t.id = ta.tester_id
+        WHERE ta.task_id = $1
+        ORDER BY ta.assigned_at DESC
+      `, [taskId]),
+      pool.query(`SELECT id, email FROM testers WHERE step2_token IS NULL AND testing_experience IS NOT NULL ORDER BY email`)
+    ]);
+
+    if (taskRes.rows.length === 0) return res.redirect('/admin/tasks');
+    const task = taskRes.rows[0];
+
+    const assignedIds = new Set(assignmentsRes.rows.map(a => a.tester_id));
+    const totalComp = subtasksRes.rows.reduce((sum, s) => sum + parseFloat(s.compensation || 0), 0);
+
+    const subtasksHtml = subtasksRes.rows.map((st, idx) => `
+      <div class="admin-subtask-row">
+        <span class="admin-subtask-num">${idx + 1}</span>
+        <span class="admin-subtask-title">${escapeHtml(st.title)}</span>
+        <span class="admin-subtask-comp">$${parseFloat(st.compensation).toFixed(2)}</span>
+      </div>
+    `).join('');
+
+    const assignedHtml = assignmentsRes.rows.map(a => `
+      <div class="assigned-tester">
+        <div class="email-avatar">${(a.email[0] || '?').toUpperCase()}</div>
+        <span>${escapeHtml(a.email)}</span>
+        <form method="POST" action="/admin/tasks/${taskId}/unassign" style="margin:0">
+          <input type="hidden" name="tester_id" value="${a.tester_id}">
+          <button type="submit" class="btn-unassign" title="Remove">×</button>
+        </form>
+      </div>
+    `).join('');
+
+    const unassignedOptions = allTestersRes.rows
+      .filter(t => !assignedIds.has(t.id))
+      .map(t => `<option value="${t.id}">${escapeHtml(t.email)}</option>`)
+      .join('');
+
+    let html = adminTaskDetailTemplate;
+    html = html.replace(/\{\{TASK_ID\}\}/g, task.id);
+    html = html.replace('{{TASK_TITLE}}', escapeHtml(task.title));
+    html = html.replace('{{TASK_DESC}}', escapeHtml(task.description || ''));
+    html = html.replace('{{TASK_MARKDOWN}}', escapeHtml(task.markdown_content));
+    html = html.replace('{{TASK_STATUS}}', task.status);
+    html = html.replace('{{TOTAL_COMP}}', totalComp.toFixed(2));
+    html = html.replace('{{SUBTASK_COUNT}}', subtasksRes.rows.length);
+    html = html.replace('{{SUBTASKS_HTML}}', subtasksHtml || '<p class="text-muted">No subtasks parsed from markdown.</p>');
+    html = html.replace('{{ASSIGNED_HTML}}', assignedHtml || '<p class="text-muted">No testers assigned yet.</p>');
+    html = html.replace('{{UNASSIGNED_OPTIONS}}', unassignedOptions);
+    html = html.replace('{{ASSIGNED_COUNT}}', assignmentsRes.rows.length);
+
+    res.send(html);
+  } catch (err) {
+    console.error('Task detail error:', err);
+    res.status(500).send('Failed to load task.');
+  }
+});
+
+app.post('/admin/tasks/:id/update', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  const taskId = parseInt(req.params.id);
+  if (isNaN(taskId)) return res.status(400).send('Invalid task ID.');
+
+  const { title, description, markdown_content, status } = req.body;
+  if (!title || !markdown_content) return res.status(400).send('Title and markdown are required.');
+
+  try {
+    await pool.query(
+      'UPDATE tasks SET title=$1, description=$2, markdown_content=$3, status=$4, updated_at=NOW() WHERE id=$5',
+      [title.trim(), description || null, markdown_content, status || 'active', taskId]
+    );
+
+    await pool.query('DELETE FROM subtasks WHERE task_id = $1 AND id NOT IN (SELECT subtask_id FROM submissions)', [taskId]);
+
+    const existingSubtasks = await pool.query('SELECT id, title FROM subtasks WHERE task_id = $1', [taskId]);
+    const existingTitles = new Map(existingSubtasks.rows.map(s => [s.title, s.id]));
+
+    const parsed = parseMarkdownToSubtasks(markdown_content);
+    for (let i = 0; i < parsed.length; i++) {
+      if (existingTitles.has(parsed[i].title)) {
+        await pool.query(
+          'UPDATE subtasks SET description=$1, sort_order=$2, compensation=$3 WHERE id=$4',
+          [parsed[i].description, i, parsed[i].compensation, existingTitles.get(parsed[i].title)]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO subtasks (task_id, title, description, sort_order, compensation) VALUES ($1,$2,$3,$4,$5)',
+          [taskId, parsed[i].title, parsed[i].description, i, parsed[i].compensation]
+        );
+      }
+    }
+
+    res.redirect(`/admin/tasks/${taskId}?success=updated`);
+  } catch (err) {
+    console.error('Update task error:', err);
+    res.status(500).send('Failed to update task.');
+  }
+});
+
+app.post('/admin/tasks/:id/delete', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  const taskId = parseInt(req.params.id);
+  if (isNaN(taskId)) return res.status(400).send('Invalid ID.');
+
+  try {
+    await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
+    res.redirect('/admin/tasks?success=deleted');
+  } catch (err) {
+    console.error('Delete task error:', err);
+    res.status(500).send('Failed to delete task.');
+  }
+});
+
+app.post('/admin/tasks/:id/assign', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  const taskId = parseInt(req.params.id);
+  const testerId = parseInt(req.body.tester_id);
+  if (isNaN(taskId) || isNaN(testerId)) return res.status(400).send('Invalid IDs.');
+
+  try {
+    await pool.query(
+      'INSERT INTO task_assignments (task_id, tester_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [taskId, testerId]
+    );
+    res.redirect(`/admin/tasks/${taskId}?success=assigned`);
+  } catch (err) {
+    console.error('Assign error:', err);
+    res.status(500).send('Failed to assign tester.');
+  }
+});
+
+app.post('/admin/tasks/:id/unassign', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  const taskId = parseInt(req.params.id);
+  const testerId = parseInt(req.body.tester_id);
+
+  try {
+    await pool.query('DELETE FROM task_assignments WHERE task_id = $1 AND tester_id = $2', [taskId, testerId]);
+    res.redirect(`/admin/tasks/${taskId}?success=unassigned`);
+  } catch (err) {
+    console.error('Unassign error:', err);
+    res.status(500).send('Failed to unassign tester.');
+  }
+});
+
+// ── Admin Reviews ──
+app.get('/admin/reviews', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  try {
+    const submissionsRes = await pool.query(`
+      SELECT sub.*, st.title AS subtask_title, st.compensation,
+             t.title AS task_title, t.id AS task_id,
+             te.email AS tester_email
+      FROM submissions sub
+      JOIN subtasks st ON st.id = sub.subtask_id
+      JOIN tasks t ON t.id = st.task_id
+      JOIN testers te ON te.id = sub.tester_id
+      ORDER BY
+        CASE sub.status WHEN 'submitted' THEN 0 WHEN 'in_review' THEN 1 WHEN 'rejected' THEN 2 WHEN 'accepted' THEN 3 END,
+        sub.updated_at DESC
+    `);
+
+    const rows = submissionsRes.rows.map(sub => {
+      const statusClass = sub.status.replace('_', '-');
+      const date = new Date(sub.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      return `
+        <tr>
+          <td>${escapeHtml(sub.tester_email)}</td>
+          <td><a href="/admin/tasks/${sub.task_id}" class="task-link">${escapeHtml(sub.task_title)}</a></td>
+          <td>${escapeHtml(sub.subtask_title)}</td>
+          <td>$${parseFloat(sub.compensation).toFixed(2)}</td>
+          <td><span class="badge badge-${statusClass}">${sub.status.replace('_', ' ')}</span></td>
+          <td>${date}</td>
+          <td>
+            <div class="td-actions">
+              <button class="btn-action btn-action--edit" title="Review" onclick="openReviewModal(${sub.id}, '${escapeHtml(sub.tester_email).replace(/'/g, "\\'")}', '${escapeHtml(sub.subtask_title).replace(/'/g, "\\'")}', '${escapeHtml(sub.workflow_text || '').replace(/'/g, "\\'").replace(/\n/g, '\\n')}', '${sub.screenshot_path ? '/uploads/' + escapeHtml(sub.screenshot_path) : ''}', '${sub.status}', '${escapeHtml(sub.admin_notes || '').replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">📋</button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    const pendingCount = submissionsRes.rows.filter(s => s.status === 'submitted' || s.status === 'in_review').length;
+
+    let html = adminReviewsTemplate;
+    html = html.replace('{{REVIEW_ROWS}}', rows || '<tr><td colspan="7" class="table-empty" style="display:table-cell">No submissions to review.</td></tr>');
+    html = html.replace('{{TOTAL_SUBMISSIONS}}', submissionsRes.rows.length);
+    html = html.replace('{{PENDING_COUNT}}', pendingCount);
+
+    res.send(html);
+  } catch (err) {
+    console.error('Reviews error:', err);
+    res.status(500).send('Failed to load reviews.');
+  }
+});
+
+app.post('/admin/reviews/:id/update', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  const subId = parseInt(req.params.id);
+  if (isNaN(subId)) return res.status(400).send('Invalid ID.');
+
+  const { status, admin_notes } = req.body;
+  const validStatuses = ['submitted', 'in_review', 'accepted', 'rejected'];
+  if (!validStatuses.includes(status)) return res.status(400).send('Invalid status.');
+
+  try {
+    await pool.query(
+      'UPDATE submissions SET status = $1, admin_notes = $2, updated_at = NOW() WHERE id = $3',
+      [status, admin_notes || null, subId]
+    );
+    res.redirect('/admin/reviews?success=updated');
+  } catch (err) {
+    console.error('Review update error:', err);
+    res.status(500).send('Failed to update review.');
   }
 });
 

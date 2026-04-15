@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TASK_TITLE}} — Admin — Sousa Dev</title>
+  <link rel="icon" href="https://sousadev.com/assets/favicon/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <div class="admin-wrapper">
+
+    <header class="admin-header">
+      <a href="https://sousadev.com" target="_blank" class="admin-logo-wrap">
+        <img src="https://sousadev.com/assets/images/logo.png" alt="Sousa Dev">
+        <span class="admin-brand">Sousa Dev</span>
+      </a>
+      <div class="admin-header-right">
+        <span class="admin-badge">Admin</span>
+        <a href="/admin/logout" class="btn-logout">Logout</a>
+      </div>
+    </header>
+
+    <nav class="admin-tabs">
+      <a href="/admin/dashboard" class="admin-tab">Testers</a>
+      <a href="/admin/tasks" class="admin-tab active">Tasks</a>
+      <a href="/admin/reviews" class="admin-tab">Reviews</a>
+    </nav>
+
+    <main class="admin-content">
+
+      <a href="/admin/tasks" class="portal-back-link">&larr; Back to Tasks</a>
+
+      <div class="admin-page-header">
+        <div>
+          <h1 class="admin-page-title">{{TASK_TITLE}}</h1>
+          <p class="admin-page-subtitle">{{TASK_DESC}}</p>
+        </div>
+        <div class="admin-task-meta">
+          <span class="portal-meta-item">{{SUBTASK_COUNT}} subtasks</span>
+          <span class="portal-meta-item portal-meta-comp">Total: ${{TOTAL_COMP}}</span>
+        </div>
+      </div>
+
+      <div class="admin-detail-grid">
+
+        <div class="admin-detail-col">
+          <div class="admin-detail-section">
+            <h2>Subtasks</h2>
+            <div class="admin-subtasks-list">
+              {{SUBTASKS_HTML}}
+            </div>
+          </div>
+
+          <div class="admin-detail-section">
+            <h2>Edit Task</h2>
+            <form method="POST" action="/admin/tasks/{{TASK_ID}}/update">
+              <div class="adm-form-group">
+                <label>Title</label>
+                <input type="text" name="title" value="{{TASK_TITLE}}" required>
+              </div>
+              <div class="adm-form-group">
+                <label>Description</label>
+                <input type="text" name="description" value="{{TASK_DESC}}">
+              </div>
+              <div class="adm-form-group">
+                <label>Status</label>
+                <select name="status">
+                  <option value="active" ${(() => '{{TASK_STATUS}}' === 'active' ? 'selected' : '')()}>Active</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+              <div class="adm-form-group">
+                <label>Markdown Content</label>
+                <textarea name="markdown_content" rows="10" required>{{TASK_MARKDOWN}}</textarea>
+                <div class="adm-form-hint">Editing will re-parse subtasks. Subtasks with existing submissions are preserved.</div>
+              </div>
+              <button type="submit" class="adm-btn-save">Save Changes</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="admin-detail-col admin-detail-col--sidebar">
+          <div class="admin-detail-section">
+            <h2>Assigned Testers <span class="admin-detail-count">{{ASSIGNED_COUNT}}</span></h2>
+            <div class="assigned-testers-list">
+              {{ASSIGNED_HTML}}
+            </div>
+            <form method="POST" action="/admin/tasks/{{TASK_ID}}/assign" class="assign-form">
+              <select name="tester_id" required>
+                <option value="">Select a tester...</option>
+                {{UNASSIGNED_OPTIONS}}
+              </select>
+              <button type="submit" class="adm-btn-save">Assign</button>
+            </form>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <footer class="admin-footer">
+      &copy; 2026 <a href="https://sousadev.com" target="_blank">Sousa Dev</a> &mdash; IT Solutions
+    </footer>
+
+  </div>
+
+  <div class="adm-toast" id="adm-toast"></div>
+
+  <script>
+    (function() {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('success')) {
+        const t = document.getElementById('adm-toast');
+        const msgs = { created: 'Task created', updated: 'Task updated', assigned: 'Tester assigned', unassigned: 'Tester removed' };
+        t.textContent = msgs[p.get('success')] || 'Done';
+        t.className = 'adm-toast adm-toast--success show';
+        setTimeout(() => { t.className = 'adm-toast'; }, 3200);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      const sel = document.querySelector('select[name="status"]');
+      if (sel) {
+        const current = '{{TASK_STATUS}}';
+        for (const opt of sel.options) {
+          if (opt.value === current) opt.selected = true;
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

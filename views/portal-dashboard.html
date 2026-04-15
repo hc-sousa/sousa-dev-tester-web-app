@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Dashboard — Sousa Dev</title>
+  <link rel="icon" href="https://sousadev.com/assets/favicon/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/portal.css">
+</head>
+<body>
+  <div class="portal-wrapper">
+
+    <header class="portal-header">
+      <a href="https://sousadev.com" target="_blank" class="portal-logo-wrap">
+        <img src="https://sousadev.com/assets/images/logo.png" alt="Sousa Dev">
+        <span class="portal-brand">Sousa Dev</span>
+      </a>
+      <nav class="portal-nav">
+        <a href="/portal" class="portal-nav-link active">Dashboard</a>
+        <a href="/portal/get-paid" class="portal-nav-link">Get Paid</a>
+      </nav>
+      <div class="portal-header-right">
+        <span class="portal-user">{{EMAIL}}</span>
+        <a href="/logout" class="btn-logout">Logout</a>
+      </div>
+    </header>
+
+    <main class="portal-content">
+
+      <div class="portal-page-header">
+        <div>
+          <h1 class="portal-page-title">My <span>Dashboard</span></h1>
+          <p class="portal-page-subtitle">Your assigned tasks and earnings overview</p>
+        </div>
+      </div>
+
+      <div class="portal-earnings-grid">
+        <div class="portal-earn-card portal-earn-card--confirmed">
+          <div class="portal-earn-icon">💰</div>
+          <div>
+            <div class="portal-earn-value">${{CONFIRMED_EARNINGS}}</div>
+            <div class="portal-earn-label">Confirmed Earnings</div>
+          </div>
+        </div>
+        <div class="portal-earn-card portal-earn-card--hold">
+          <div class="portal-earn-icon">⏳</div>
+          <div>
+            <div class="portal-earn-value">${{ON_HOLD_EARNINGS}}</div>
+            <div class="portal-earn-label">On Hold (In Review)</div>
+          </div>
+        </div>
+        <div class="portal-earn-card portal-earn-card--total">
+          <div class="portal-earn-icon">📊</div>
+          <div>
+            <div class="portal-earn-value">${{TOTAL_EARNINGS}}</div>
+            <div class="portal-earn-label">Total Earnings</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="portal-section-header">
+        <h2>My Tasks</h2>
+        <span class="portal-section-count">{{TASK_COUNT}} assigned</span>
+      </div>
+
+      <div class="portal-tasks-grid">
+        {{TASK_CARDS}}
+      </div>
+
+    </main>
+
+    <footer class="portal-footer">
+      &copy; 2026 <a href="https://sousadev.com" target="_blank">Sousa Dev</a> &mdash; IT Solutions
+    </footer>
+
+  </div>
+</body>
+</html>

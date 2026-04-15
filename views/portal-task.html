@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TASK_TITLE}} — Sousa Dev</title>
+  <link rel="icon" href="https://sousadev.com/assets/favicon/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/portal.css">
+</head>
+<body>
+  <div class="portal-wrapper">
+
+    <header class="portal-header">
+      <a href="https://sousadev.com" target="_blank" class="portal-logo-wrap">
+        <img src="https://sousadev.com/assets/images/logo.png" alt="Sousa Dev">
+        <span class="portal-brand">Sousa Dev</span>
+      </a>
+      <nav class="portal-nav">
+        <a href="/portal" class="portal-nav-link">Dashboard</a>
+        <a href="/portal/get-paid" class="portal-nav-link">Get Paid</a>
+      </nav>
+      <div class="portal-header-right">
+        <a href="/logout" class="btn-logout">Logout</a>
+      </div>
+    </header>
+
+    <main class="portal-content">
+
+      <a href="/portal" class="portal-back-link">&larr; Back to Dashboard</a>
+
+      <div class="portal-page-header">
+        <div>
+          <h1 class="portal-page-title">{{TASK_TITLE}}</h1>
+          <p class="portal-page-subtitle">{{TASK_DESC}}</p>
+        </div>
+        <div class="portal-task-meta">
+          <span class="portal-meta-item">{{SUBTASK_COUNT}} subtasks</span>
+          <span class="portal-meta-item portal-meta-comp">Total: ${{TOTAL_COMP}}</span>
+        </div>
+      </div>
+
+      <div class="subtasks-list">
+        {{SUBTASKS_HTML}}
+      </div>
+
+    </main>
+
+    <footer class="portal-footer">
+      &copy; 2026 <a href="https://sousadev.com" target="_blank">Sousa Dev</a> &mdash; IT Solutions
+    </footer>
+
+  </div>
+</body>
+</html>
