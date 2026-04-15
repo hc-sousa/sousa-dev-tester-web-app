@@ -1,0 +1,284 @@
+# E-Rocks Mobile — Manual Testing Plan
+
+## Device Matrix
+
+| Device           | OS         | Screen Size | Notes                      |
+|------------------|------------|-------------|----------------------------|
+| iPhone SE        | iOS 17+    | Small       | Layout stress test         |
+| iPhone 15 Pro Max| iOS 17+    | Large       | Baseline                   |
+| iPad             | iPadOS 17+ | Tablet      | Landscape rail layout      |
+| Pixel 7 (emu)   | Android 14 | Medium      | Android baseline           |
+| Low-end Android  | Android 12 | Small       | Performance / memory        |
+
+Run every section in **dark mode** (default) and **light mode**.
+
+---
+
+## 1. Authentication & Account
+
+### 1.1 Login (LoginScreen)
+- [ ] Sign in with valid e-rocks credentials → lands on Settings or `returnTo` screen
+- [ ] Sign in with **wrong password** → error alert, no crash
+- [ ] Sign in with **empty fields** → validation prevents submit
+- [ ] Tap show/hide password toggle → password toggles visibility
+- [ ] Login triggers **MFA challenge** → navigates to MfaChallengeScreen
+- [ ] Login returns `action_required` (legacy password) → navigates to LegacyPasswordSetup
+- [ ] Login returns `upgrade_required` → navigates to HostedAuth with correct URL
+- [ ] "Forgot Password" → opens external URL in browser
+- [ ] "Register" → opens external e-rocks registration URL
+- [ ] Privacy Policy / Terms links → open correct URLs
+- [ ] Login from a **paywall prompt** → after success, returns to paywall / original screen
+- [ ] Keyboard does not obscure inputs on small screens (KeyboardAvoidingView)
+
+### 1.2 MFA Challenge (MfaChallengeScreen)
+- [ ] Enter valid 6-digit code → completes auth, navigates to home/settings
+- [ ] Enter wrong code → error message, stays on screen
+- [ ] Leave code blank → submit blocked or clear error
+
+### 1.3 Logout
+- [ ] Logout from Settings → clears tokens, RevenueCat logout, tier resets to `free`
+- [ ] After logout, subscription-gated content shows free-tier UI (blurred prices, lock icons)
+- [ ] After logout, deep-linking back into a premium screen shows paywall
+
+### 1.4 Session Persistence
+- [ ] Kill app → reopen → user still logged in (tokens from expo-secure-store)
+- [ ] Force-expire token → next API call triggers silent refresh (401 → refresh interceptor)
+- [ ] If refresh fails → user is logged out gracefully
+
+---
+
+## 2. Subscription & Paywall
+
+### 2.1 Tier Gating
+- [ ] **Free user** sees blurred/locked prices on ItemBrowseCard, ItemDetailScreen, PriceDisplay
+- [ ] **Free user** tapping a locked feature triggers paywall or login prompt
+- [ ] **Premium (Collector) user** sees all prices, market data, associations, full localities
+- [ ] Tier label in AccountHubHeaderButton shows "Free" or "Collector" with correct color
+
+### 2.2 RevenueCat Integration
+- [ ] Purchase flow (sandbox): subscribe → tier updates to `premium` immediately
+- [ ] Restore purchases → tier reflects restored entitlements
+- [ ] Cancel subscription → after expiry, tier reverts to `free`
+- [ ] Web subscriber (backend tier) + no in-app purchase → still shows `premium` (merge logic)
+- [ ] In-app subscriber + no backend tier → still shows `premium` (higher-of-two wins)
+
+### 2.3 Subscription Source Display
+- [ ] `subscriptionSource: 'app'` → Settings shows "via App Store / Google Play"
+- [ ] `subscriptionSource: 'web'` → Settings shows "via e-rocks.com"
+
+---
+
+## 3. Minerals Doomscroll (Home Feed)
+
+### 3.1 Feed Basics (MineralsDoomscrollScreen)
+- [ ] App opens to Doomscroll tab by default
+- [ ] Full-screen vertical feed scrolls smoothly (60 fps target)
+- [ ] Mineral slides show image, name, basic info
+- [ ] Trivia/quiz slides appear interleaved in the feed
+- [ ] Session position restores after backgrounding / tab switch (doomscrollStore)
+
+### 3.2 Interactions
+- [ ] Tap mineral slide → navigates to MineralDetail
+- [ ] Tap specimen on a slide → navigates to ItemDetail
+- [ ] Favourite a mineral (if logged in) → heart toggles, persists
+- [ ] Free-tier user sees paywall gate on extra photos
+- [ ] Onboarding coach overlay appears on first launch, dismissible
+
+### 3.3 Performance
+- [ ] Scroll 100+ items without memory warnings or jank
+- [ ] App state changes (background/foreground) don't duplicate data or reset position
+
+---
+
+## 4. Search & Mineral Detail
+
+### 4.1 Search (SearchScreen)
+- [ ] Type mineral name → autocomplete suggestions appear
+- [ ] Select suggestion → navigates to MineralDetail
+- [ ] IMA-only toggle filters results correctly
+- [ ] Empty search → appropriate placeholder / empty state
+
+### 4.2 Mineral Detail (MineralDetailScreen)
+- [ ] Shows mineral name, images, formula, crystal system, properties
+- [ ] Taxonomy pills (Strunz, crystal system, group) navigate to filter screens
+- [ ] Gallery link → GalleryScreen with specimens for this mineral
+- [ ] Market Analytics link → MarketAnalyticsScreen (premium-gated)
+- [ ] Associated minerals section (premium-gated for free users)
+- [ ] Locality list loads and is tappable → LocalityDetail
+
+---
+
+## 5. Browse & Filtering
+
+### 5.1 Item Browse (ItemBrowseScreen)
+- [ ] Loads initial page of 16 items in a grid
+- [ ] Infinite scroll → loads next pages seamlessly
+- [ ] Pull-to-refresh → refetches from page 1
+- [ ] Scroll-to-top FAB appears after scrolling down, tapping scrolls to top
+- [ ] Grid column count persists across sessions (AsyncStorage)
+- [ ] Tap item card → navigates to ItemDetail
+
+### 5.2 FilterSheet
+- [ ] Open filter sheet → mineral autocomplete works (type → suggestions → select)
+- [ ] Locality autocomplete works similarly
+- [ ] Price range slider adjusts min/max
+- [ ] Sort options: newest, oldest, price_asc, price_desc, relevance
+- [ ] Price sort requires premium tier → free users see paywall prompt
+- [ ] Currency selector switches between supported currencies
+- [ ] Items-per-row selector changes grid columns
+- [ ] "Include other minerals" toggle changes results when mineral filter active
+- [ ] Apply filters → results update; clear filters → back to defaults
+- [ ] Filter sheet modes: browse, gallery-mineral, gallery-locality, seller-inventory all render correctly
+
+### 5.3 Locality Browse
+- [ ] CountryBrowseScreen → select country → LocalityBrowseScreen
+- [ ] LocalitySearchScreen → type locality → autocomplete → LocalityDetail
+- [ ] LocalityDetailScreen → shows locality info, map data, mineral list, gallery link
+
+---
+
+## 6. Item Detail (ItemDetailScreen)
+
+### 6.1 Public Items
+- [ ] Loads item via `itemsApi.getDetail(nid)` → shows images, title, description
+- [ ] Photo gallery swipeable (ItemPhotoGallery)
+- [ ] Price display: free user sees blurred; premium sees actual price + currency
+- [ ] Mineral pills → tap navigates to MineralDetail
+- [ ] Locality label → tappable, navigates or shows in-app browser
+- [ ] Dimensions, condition, associations shown when available
+- [ ] "Open on e-rocks" button → in-app browser with confirmation dialog
+- [ ] Mindat locality links → open correctly
+- [ ] SimilarSpecimens carousel loads related items; tapping one navigates to its detail
+- [ ] Loading state (spinner), error state (retry), empty state all handled
+
+### 6.2 Auction Items
+- [ ] `source: 'auction'` → loads via `auctionApi.getItemDetail`
+- [ ] Auction countdown timer displays and ticks
+- [ ] Current bid amount visible (even for free users on live auctions via `forceShow`)
+- [ ] Bid polling updates bid amount in real time
+- [ ] Auction ended state shows final price + "Ended" label
+
+---
+
+## 7. Explore Tab
+
+### 7.1 Research Hub (ResearchHubScreen)
+- [ ] Hub displays sections: Auctions, Sellers, Classification tools
+- [ ] Each section links to correct sub-screen
+
+### 7.2 Auctions
+- [ ] AuctionsListScreen → lists active auctions with live indicators
+- [ ] Tap auction → AuctionItemsScreen → lists items for that auction
+- [ ] Tap item → ItemDetail with `source: 'auction'`
+
+### 7.3 Seller Directory (SellersDirectoryScreen)
+- [ ] Paginated list of sellers loads
+- [ ] CTA cards injected between sellers (SellerCtaCard variants)
+- [ ] Tap seller → SellerItemsScreen
+
+### 7.4 Seller Items (SellerItemsScreen)
+- [ ] Three tabs: Live / Archive / Sold
+- [ ] Each tab loads via `itemsApi.browseSellerItems` with correct status filter
+- [ ] Channel filter works (if seller has multiple channels)
+- [ ] FilterSheet opens in `seller-inventory` mode
+- [ ] Collapsible header animates on scroll
+- [ ] Seller profile / policies buttons → open in-app browser
+- [ ] Infinite scroll + pull-to-refresh work per tab
+
+### 7.5 Classification Tools
+- [ ] NickelStrunzScreen → hierarchical classification tree navigable
+- [ ] GroupsScreen → mineral groups browsable
+- [ ] PeriodicTableScreen → interactive periodic table, element tap → ElementFilter
+- [ ] StrunzFilterScreen / CrystalSystemFilterScreen / GroupFilterScreen / ElementFilterScreen → all show filtered minerals
+
+---
+
+## 8. Gallery (GalleryScreen)
+
+- [ ] Loads grid of specimen images for a mineral or locality
+- [ ] Sort and filter controls work
+- [ ] Tap image → ImageViewer fullscreen (pinch-zoom, swipe)
+- [ ] Column count persists
+- [ ] Premium checks for certain gallery modes
+- [ ] Mineral search + suggestions within gallery filter
+
+---
+
+## 9. Favourites
+
+- [ ] Tab only visible if `FAVOURITES_MODULE_ENABLED` feature flag is true
+- [ ] Lists favourited minerals
+- [ ] Unfavouriting removes from list
+- [ ] Navigating to MineralDetail / Gallery from favourites works
+- [ ] Empty state when no favourites saved
+
+---
+
+## 10. Settings
+
+- [ ] Theme toggle (dark ↔ light) → entire app re-renders with correct colors
+- [ ] Account info displays current user / tier
+- [ ] Subscription management link / paywall entry point
+- [ ] Logout button works (see §1.3)
+- [ ] AccountHubHeaderButton (top-right on every screen) opens account modal
+
+---
+
+## 11. Navigation & UX
+
+### 11.1 Tab Navigation
+- [ ] All 7 tabs (Home, Search, Browse, Doomscroll, Explore, Favourites, Settings) accessible
+- [ ] WheelMenu custom tab bar renders correctly, animations smooth
+- [ ] Each tab maintains its own stack state (navigate deep → switch tab → switch back → still deep)
+- [ ] Landscape mode → rail layout kicks in (useLandscapeRailStore)
+
+### 11.2 Deep Linking / Cross-Tab
+- [ ] ItemDetail reachable from every tab that includes it (Search, Browse, Doomscroll, Explore, Favourites)
+- [ ] MineralDetail reachable from Search, Browse, Doomscroll, Explore, Favourites
+- [ ] Back navigation works correctly in every stack
+- [ ] No duplicate screens pushed when tapping rapidly
+
+---
+
+## 12. Offline & Network
+
+- [ ] Turn off network → offline banner appears
+- [ ] Mineral search still works offline (SQLite FTS5)
+- [ ] Previously loaded screens show cached data (React Query cache)
+- [ ] API calls fail gracefully with retry buttons, not crashes
+- [ ] Restore network → banner dismisses, data refreshes
+- [ ] Slow network (throttled) → loading states visible, no timeout crashes
+
+---
+
+## 13. Accessibility
+
+- [ ] VoiceOver (iOS) / TalkBack (Android) can navigate all interactive elements
+- [ ] All buttons, cards, inputs have `accessibilityLabel` + `accessibilityRole`
+- [ ] Touch targets ≥ 44×44pt (use `hitSlop` where needed)
+- [ ] Large text (accessibility font scaling) doesn't break layouts
+- [ ] `maxFontSizeMultiplier` set on critical text to prevent overflow
+
+---
+
+## 14. Performance & Stability
+
+- [ ] Cold start to Doomscroll feed < 3s on mid-range device
+- [ ] Scrolling any FlatList maintains 60 fps (no dropped frames)
+- [ ] Navigating between 10+ screens in a single session — no memory leak / crash
+- [ ] Rapidly switching tabs doesn't cause re-render storms
+- [ ] Image-heavy screens (Gallery, Doomscroll) don't OOM
+- [ ] Background → foreground resumes cleanly (no white flash, no data loss)
+
+---
+
+## 15. Edge Cases
+
+- [ ] Item with no images → placeholder shown, no crash
+- [ ] Item with no price → "Price on request" or similar, no NaN
+- [ ] Mineral with no specimens → empty gallery state
+- [ ] Seller with 0 items → empty state in SellerItems
+- [ ] Very long mineral/locality names → text truncates, doesn't overflow
+- [ ] HTML entities in item titles → decoded correctly (he library)
+- [ ] Negative or zero auction bid → handled gracefully
+- [ ] API returns unexpected shape → error boundary catches, retry available
