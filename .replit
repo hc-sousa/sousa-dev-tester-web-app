@@ -48,4 +48,4 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
-ADMIN_PASSWORD = "admin123"
+ADMIN_PASSWORD = ""
