@@ -1,6 +1,7 @@
 const express = require('express');
 const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -14,6 +15,37 @@ const pool = new Pool({
 const ALLOWED_DEVICES = ['Windows', 'Mac', 'iPhone', 'Android', 'Other'];
 
 const step2Template = fs.readFileSync(path.join(__dirname, 'views', 'step2.html'), 'utf8');
+const adminLoginTemplate = fs.readFileSync(path.join(__dirname, 'views', 'admin-login.html'), 'utf8');
+const adminDashTemplate = fs.readFileSync(path.join(__dirname, 'views', 'admin-dashboard.html'), 'utf8');
+
+const adminSessions = new Set();
+
+function createAdminSession() {
+  const token = crypto.randomBytes(32).toString('hex');
+  adminSessions.add(token);
+  return token;
+}
+
+function isAdminEnabled() {
+  const pw = process.env.ADMIN_PASSWORD;
+  return typeof pw === 'string' && pw.trim().length > 0;
+}
+
+function isAdminAuthenticated(req) {
+  if (!isAdminEnabled()) return false;
+  const cookies = parseCookies(req);
+  return cookies['admin_token'] && adminSessions.has(cookies['admin_token']);
+}
+
+function parseCookies(req) {
+  const header = req.headers.cookie || '';
+  const result = {};
+  header.split(';').forEach(pair => {
+    const [key, ...rest] = pair.split('=');
+    if (key) result[key.trim()] = decodeURIComponent(rest.join('=').trim());
+  });
+  return result;
+}
 
 async function initDatabase() {
   await pool.query(`
@@ -168,6 +200,187 @@ app.post('/api/step2', async (req, res) => {
 
 app.get('/success', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'success.html'));
+});
+
+app.get('/admin', (req, res) => {
+  if (!isAdminEnabled()) {
+    return res.status(403).send(`
+      <html><body style="font-family:'Poppins',system-ui;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#060a10;color:#e2e8f0">
+        <div style="text-align:center;max-width:420px;padding:2rem">
+          <h2 style="color:#f87171">Admin Disabled</h2>
+          <p style="color:#94a3b8">The admin dashboard is not available. The <code>ADMIN_PASSWORD</code> environment variable must be set to enable access.</p>
+          <a href="/" style="color:#10B43C">Back to home</a>
+        </div>
+      </body></html>
+    `);
+  }
+  if (isAdminAuthenticated(req)) {
+    return res.redirect('/admin/dashboard');
+  }
+  let html = adminLoginTemplate;
+  html = html.replace('{{ERROR_CLASS}}', '');
+  html = html.replace('{{ERROR_MSG}}', '');
+  res.send(html);
+});
+
+app.post('/admin/login', (req, res) => {
+  if (!isAdminEnabled()) return res.redirect('/admin');
+
+  const { password } = req.body;
+  if (password && password === process.env.ADMIN_PASSWORD.trim()) {
+    const sessionToken = createAdminSession();
+    const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    res.setHeader('Set-Cookie', `admin_token=${sessionToken}; HttpOnly; Path=/admin; SameSite=Strict; Max-Age=86400${secure}`);
+    return res.redirect('/admin/dashboard');
+  }
+
+  let html = adminLoginTemplate;
+  html = html.replace('{{ERROR_CLASS}}', 'visible');
+  html = html.replace('{{ERROR_MSG}}', 'Incorrect password. Please try again.');
+  res.send(html);
+});
+
+app.get('/admin/logout', (req, res) => {
+  const cookies = parseCookies(req);
+  if (cookies['admin_token']) {
+    adminSessions.delete(cookies['admin_token']);
+  }
+  res.setHeader('Set-Cookie', 'admin_token=; HttpOnly; Path=/admin; SameSite=Strict; Max-Age=0');
+  res.redirect('/admin');
+});
+
+app.get('/admin/dashboard', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  try {
+    const [totals, deviceStats, expStats, testers] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE step2_token IS NULL AND testing_experience IS NOT NULL)::int AS complete,
+          COUNT(*) FILTER (WHERE step2_token IS NOT NULL)::int AS pending,
+          COUNT(*) FILTER (WHERE nda_signed = true)::int AS nda_yes
+        FROM testers
+      `),
+      pool.query(`
+        SELECT device, COUNT(*)::int AS cnt
+        FROM testers, jsonb_array_elements_text(devices) AS device
+        GROUP BY device ORDER BY cnt DESC
+      `),
+      pool.query(`
+        SELECT testing_experience AS level, COUNT(*)::int AS cnt
+        FROM testers WHERE testing_experience IS NOT NULL
+        GROUP BY testing_experience ORDER BY cnt DESC
+      `),
+      pool.query(`
+        SELECT email, birth_year, devices, testing_experience, occupation,
+               nda_signed, step2_token, created_at
+        FROM testers ORDER BY created_at DESC
+      `)
+    ]);
+
+    const s = totals.rows[0];
+
+    const deviceHtml = deviceStats.rows.map(r =>
+      `<div class="stat-row"><span class="stat-row-label">${escapeHtml(r.device)}</span><span class="stat-row-value">${r.cnt}</span></div>`
+    ).join('') || '<span class="stat-row-label">No data yet</span>';
+
+    const expHtml = expStats.rows.map(r =>
+      `<div class="stat-row"><span class="stat-row-label">${escapeHtml(r.level)}</span><span class="stat-row-value">${r.cnt}</span></div>`
+    ).join('') || '<span class="stat-row-label">No data yet</span>';
+
+    const rowsHtml = testers.rows.map(t => {
+      const devices = (typeof t.devices === 'string' ? JSON.parse(t.devices) : t.devices) || [];
+      const isComplete = !t.step2_token && t.testing_experience;
+      const statusBadge = isComplete
+        ? '<span class="badge badge-complete">Complete</span>'
+        : '<span class="badge badge-pending">Pending</span>';
+      const ndaText = t.nda_signed
+        ? '<span class="badge-yes">Yes</span>'
+        : '<span class="badge-no">No</span>';
+      const date = new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      return `<tr>
+        <td>${escapeHtml(t.email)}</td>
+        <td>${t.birth_year}</td>
+        <td>${devices.map(d => escapeHtml(d)).join(', ')}</td>
+        <td>${escapeHtml(t.testing_experience || '—')}</td>
+        <td>${escapeHtml(t.occupation || '—')}</td>
+        <td>${ndaText}</td>
+        <td>${statusBadge}</td>
+        <td>${date}</td>
+      </tr>`;
+    }).join('');
+
+    let html = adminDashTemplate;
+    html = html.replace('{{TOTAL}}', s.total);
+    html = html.replace('{{COMPLETE}}', s.complete);
+    html = html.replace('{{PENDING}}', s.pending);
+    html = html.replace('{{NDA_YES}}', s.nda_yes);
+    html = html.replace('{{DEVICE_STATS}}', deviceHtml);
+    html = html.replace('{{EXPERIENCE_STATS}}', expHtml);
+    html = html.replace('{{TABLE_ROWS}}', rowsHtml);
+
+    res.send(html);
+  } catch (err) {
+    console.error('Dashboard error:', err);
+    res.status(500).send('Failed to load dashboard.');
+  }
+});
+
+app.get('/admin/export', async (req, res) => {
+  if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+
+  try {
+    const result = await pool.query(`
+      SELECT email, birth_year, devices, other_device_details,
+             testing_experience, device_models, occupation,
+             bug_report_sample, nda_signed, created_at, updated_at
+      FROM testers WHERE step2_token IS NULL AND testing_experience IS NOT NULL
+      ORDER BY created_at DESC
+    `);
+
+    const headers = ['Email', 'Birth Year', 'Devices', 'Other Device Details',
+                     'Experience', 'Device Models', 'Occupation',
+                     'Bug Report Sample', 'NDA Willing', 'Signed Up', 'Updated'];
+
+    const csvEscape = (val) => {
+      if (val === null || val === undefined) return '';
+      let str = String(val);
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes("'")) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    };
+
+    let csv = headers.join(',') + '\n';
+    for (const row of result.rows) {
+      const devices = (typeof row.devices === 'string' ? JSON.parse(row.devices) : row.devices) || [];
+      csv += [
+        csvEscape(row.email),
+        row.birth_year,
+        csvEscape(devices.join('; ')),
+        csvEscape(row.other_device_details),
+        csvEscape(row.testing_experience),
+        csvEscape(row.device_models),
+        csvEscape(row.occupation),
+        csvEscape(row.bug_report_sample),
+        row.nda_signed ? 'Yes' : 'No',
+        new Date(row.created_at).toISOString(),
+        new Date(row.updated_at).toISOString()
+      ].join(',') + '\n';
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="beta-testers.csv"');
+    res.send(csv);
+  } catch (err) {
+    console.error('Export error:', err);
+    res.status(500).send('Failed to export data.');
+  }
 });
 
 initDatabase()

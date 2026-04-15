@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Sousa Dev</title>
+  <link rel="icon" href="https://sousadev.com/assets/favicon/apple-touch-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <div class="page-wrapper" style="max-width:1200px">
+
+    <header class="site-header">
+      <a href="https://sousadev.com" target="_blank" class="logo-link">
+        <img src="https://sousadev.com/assets/images/logo.png" alt="Sousa Dev Logo">
+        <span class="brand-name">Sousa Dev</span>
+      </a>
+      <div style="display:flex;align-items:center;gap:0.75rem">
+        <div class="header-badge">Admin</div>
+        <a href="/admin/logout" class="btn-logout">Logout</a>
+      </div>
+    </header>
+
+    <h1 class="dash-title">Beta Testers <span style="color:var(--green)">Dashboard</span></h1>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">{{TOTAL}}</div>
+        <div class="stat-label">Total Sign-ups</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{COMPLETE}}</div>
+        <div class="stat-label">Completed Profiles</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{PENDING}}</div>
+        <div class="stat-label">Pending Step 2</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{NDA_YES}}</div>
+        <div class="stat-label">NDA Willing</div>
+      </div>
+    </div>
+
+    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))">
+      <div class="stat-card">
+        <div class="stat-label" style="margin-bottom:0.75rem;font-weight:600;color:var(--green)">Devices</div>
+        {{DEVICE_STATS}}
+      </div>
+      <div class="stat-card">
+        <div class="stat-label" style="margin-bottom:0.75rem;font-weight:600;color:var(--green)">Experience Levels</div>
+        {{EXPERIENCE_STATS}}
+      </div>
+    </div>
+
+    <div class="card table-card">
+      <div class="table-header">
+        <h2>All Testers</h2>
+        <a href="/admin/export" class="btn-export">Export CSV</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Birth Year</th>
+              <th>Devices</th>
+              <th>Experience</th>
+              <th>Occupation</th>
+              <th>NDA</th>
+              <th>Status</th>
+              <th>Signed Up</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{TABLE_ROWS}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      &copy; 2026 <a href="https://sousadev.com" target="_blank">Sousa Dev</a> &mdash; IT Solutions
+    </footer>
+
+  </div>
+</body>
+</html>
