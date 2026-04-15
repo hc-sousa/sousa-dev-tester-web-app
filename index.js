@@ -280,14 +280,31 @@ app.get('/admin/dashboard', async (req, res) => {
     ]);
 
     const s = totals.rows[0];
+    const total = s.total || 1;
+    const pct = (n) => Math.round((n / total) * 100);
+    const completePct = pct(s.complete);
+    const pendingPct  = pct(s.pending);
+    const ndaPct      = pct(s.nda_yes);
 
-    const deviceHtml = deviceStats.rows.map(r =>
-      `<div class="stat-row"><span class="stat-row-label">${escapeHtml(r.device)}</span><span class="stat-row-value">${r.cnt}</span></div>`
-    ).join('') || '<span class="stat-row-label">No data yet</span>';
+    const deviceMax = deviceStats.rows[0]?.cnt || 1;
+    const deviceHtml = deviceStats.rows.map(r => {
+      const barPct = Math.round((r.cnt / deviceMax) * 100);
+      return `<div class="breakdown-row">
+        <span class="breakdown-label">${escapeHtml(r.device)}</span>
+        <div class="breakdown-bar-wrap"><div class="breakdown-bar-fill" style="width:${barPct}%"></div></div>
+        <span class="breakdown-count">${r.cnt}</span>
+      </div>`;
+    }).join('') || '<span class="breakdown-empty">No data yet</span>';
 
-    const expHtml = expStats.rows.map(r =>
-      `<div class="stat-row"><span class="stat-row-label">${escapeHtml(r.level)}</span><span class="stat-row-value">${r.cnt}</span></div>`
-    ).join('') || '<span class="stat-row-label">No data yet</span>';
+    const expMax = expStats.rows[0]?.cnt || 1;
+    const expHtml = expStats.rows.map(r => {
+      const barPct = Math.round((r.cnt / expMax) * 100);
+      return `<div class="breakdown-row">
+        <span class="breakdown-label">${escapeHtml(r.level)}</span>
+        <div class="breakdown-bar-wrap"><div class="breakdown-bar-fill" style="width:${barPct}%"></div></div>
+        <span class="breakdown-count">${r.cnt}</span>
+      </div>`;
+    }).join('') || '<span class="breakdown-empty">No data yet</span>';
 
     const rowsHtml = testers.rows.map(t => {
       const devices = (typeof t.devices === 'string' ? JSON.parse(t.devices) : t.devices) || [];
@@ -295,28 +312,38 @@ app.get('/admin/dashboard', async (req, res) => {
       const statusBadge = isComplete
         ? '<span class="badge badge-complete">Complete</span>'
         : '<span class="badge badge-pending">Pending</span>';
-      const ndaText = t.nda_signed
-        ? '<span class="badge-yes">Yes</span>'
-        : '<span class="badge-no">No</span>';
+      const ndaBadge = t.nda_signed
+        ? '<span class="badge badge-nda-yes">Yes</span>'
+        : '<span class="badge-nda-no">No</span>';
       const date = new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const initial = (t.email || '?')[0].toUpperCase();
+      const deviceTags = devices.map(d => `<span class="device-tag">${escapeHtml(d)}</span>`).join('');
 
       return `<tr>
-        <td>${escapeHtml(t.email)}</td>
+        <td>
+          <div class="td-email">
+            <div class="email-avatar">${initial}</div>
+            <span class="td-email-text">${escapeHtml(t.email)}</span>
+          </div>
+        </td>
         <td>${t.birth_year}</td>
-        <td>${devices.map(d => escapeHtml(d)).join(', ')}</td>
+        <td><div class="device-tags">${deviceTags}</div></td>
         <td>${escapeHtml(t.testing_experience || '—')}</td>
         <td>${escapeHtml(t.occupation || '—')}</td>
-        <td>${ndaText}</td>
+        <td>${ndaBadge}</td>
         <td>${statusBadge}</td>
         <td>${date}</td>
       </tr>`;
     }).join('');
 
     let html = adminDashTemplate;
-    html = html.replace('{{TOTAL}}', s.total);
-    html = html.replace('{{COMPLETE}}', s.complete);
-    html = html.replace('{{PENDING}}', s.pending);
-    html = html.replace('{{NDA_YES}}', s.nda_yes);
+    html = html.replace(/\{\{TOTAL\}\}/g, s.total);
+    html = html.replace(/\{\{COMPLETE\}\}/g, s.complete);
+    html = html.replace(/\{\{COMPLETE_PCT\}\}/g, completePct);
+    html = html.replace(/\{\{PENDING\}\}/g, s.pending);
+    html = html.replace(/\{\{PENDING_PCT\}\}/g, pendingPct);
+    html = html.replace(/\{\{NDA_YES\}\}/g, s.nda_yes);
+    html = html.replace(/\{\{NDA_PCT\}\}/g, ndaPct);
     html = html.replace('{{DEVICE_STATS}}', deviceHtml);
     html = html.replace('{{EXPERIENCE_STATS}}', expHtml);
     html = html.replace('{{TABLE_ROWS}}', rowsHtml);
