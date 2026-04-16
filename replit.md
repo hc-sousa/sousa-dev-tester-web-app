@@ -17,6 +17,7 @@ docker-compose.yml      - Full stack deployment (app + PostgreSQL)
 .dockerignore           - Files excluded from Docker build
 .env.example            - Template for environment variables
 views/
+  index.html            - Marketing landing page (home)
   step1.html            - Step 1 quick sign-up form
   step2.html            - Step 2 detailed profile form (template with placeholders)
   success.html          - Thank you / success page
@@ -35,7 +36,8 @@ public/
 - **Timestamps:** created_at, updated_at
 
 ## Routes
-- `GET /` — Step 1 form
+- `GET /` — Marketing landing page (join + hire CTAs)
+- `GET /join` — Step 1 form (beta tester sign-up)
 - `POST /api/step1` — Save Step 1 data, redirect to Step 2 via token
 - `GET /complete-profile?token=X` — Step 2 form with pre-filled data (token-based access)
 - `POST /api/step2` — Update record with Step 2 data, redirect to success
