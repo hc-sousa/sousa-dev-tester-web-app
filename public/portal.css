@@ -132,7 +132,35 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.portal-payment-notice {
+  background: rgba(16, 180, 60, 0.06);
+  border: 1px solid rgba(16, 180, 60, 0.22);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
   margin-bottom: 2rem;
+}
+
+.portal-payment-notice-main {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.portal-payment-notice-main strong {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.portal-payment-notice-sub {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 .portal-earnings-grid--wide {
