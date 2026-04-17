@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
@@ -7,10 +8,15 @@ const path = require('path');
 const multer = require('multer');
 
 const app = express();
-const port = 5000;
+const port = Number(process.env.PORT) || 5000;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+});
+
+// pg Pool emits 'error' on idle clients; without a listener Node exits the process.
+pool.on('error', (err) => {
+  console.warn('[pg] pool error (ignored):', err.code || err.message);
 });
 
 const ALLOWED_DEVICES = ['Windows', 'Mac', 'iPhone', 'Android', 'Other'];
@@ -89,6 +95,20 @@ function parseCookies(req) {
     if (key) result[key.trim()] = decodeURIComponent(rest.join('=').trim());
   });
   return result;
+}
+
+let databaseReady = false;
+
+function respondDbUnavailable(res) {
+  res.status(503).type('html').send(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Database unavailable</title></head>
+<body style="font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f8f9fa">
+  <div style="text-align:center;max-width:420px;padding:2rem">
+    <h2 style="color:#64748b">Database unavailable</h2>
+    <p style="color:#475569">This action needs PostgreSQL. Set <code>DATABASE_URL</code> and ensure the server is running, then restart the app.</p>
+    <a href="/" style="color:#4f46e5">Back to home</a>
+  </div>
+</body></html>`);
 }
 
 async function initDatabase() {
@@ -212,11 +232,55 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use('/uploads', express.static(uploadsDir));
 
+const SITE_URL = (process.env.SITE_URL || 'https://sousadev.com').replace(/\/+$/, '');
+
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'index.html'));
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(
+    [
+      'User-agent: *',
+      'Allow: /',
+      'Allow: /join',
+      'Disallow: /complete-profile',
+      'Disallow: /success',
+      'Disallow: /admin',
+      'Disallow: /admin/',
+      'Disallow: /api/',
+      '',
+      `Sitemap: ${SITE_URL}/sitemap.xml`,
+      '',
+    ].join('\n')
+  );
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const lastmod = new Date().toISOString().slice(0, 10);
+  const urls = [
+    { loc: `${SITE_URL}/`,     changefreq: 'weekly',  priority: '1.0' },
+    { loc: `${SITE_URL}/join`, changefreq: 'monthly', priority: '0.8' },
+  ];
+  const body =
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    urls
+      .map(
+        (u) =>
+          `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+      )
+      .join('\n') +
+    `\n</urlset>\n`;
+  res.type('application/xml').send(body);
+});
+
+app.get('/join', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'step1.html'));
 });
 
 app.post('/api/step1', async (req, res) => {
+  if (!databaseReady) return respondDbUnavailable(res);
   try {
     const { email, birth_year, devices, other_device_details } = req.body;
 
@@ -250,7 +314,7 @@ app.post('/api/step1', async (req, res) => {
           <div style="text-align:center;max-width:400px;padding:2rem">
             <h2 style="color:#dc3545">Email Already Registered</h2>
             <p>This email address has already been used to sign up.</p>
-            <a href="/" style="color:#4f46e5">Go back</a>
+            <a href="/join" style="color:#4f46e5">Go back</a>
           </div>
         </body></html>
       `);
@@ -262,12 +326,13 @@ app.post('/api/step1', async (req, res) => {
 });
 
 app.get('/complete-profile', async (req, res) => {
+  if (!databaseReady) return respondDbUnavailable(res);
   const { token } = req.query;
-  if (!token) return res.redirect('/');
+  if (!token) return res.redirect('/join');
 
   try {
     const result = await pool.query('SELECT * FROM testers WHERE step2_token = $1', [token]);
-    if (result.rows.length === 0) return res.redirect('/');
+    if (result.rows.length === 0) return res.redirect('/join');
 
     const tester = result.rows[0];
     const devices = typeof tester.devices === 'string' ? JSON.parse(tester.devices) : tester.devices;
@@ -291,6 +356,7 @@ app.get('/complete-profile', async (req, res) => {
 });
 
 app.post('/api/step2', async (req, res) => {
+  if (!databaseReady) return respondDbUnavailable(res);
   try {
     const { token, testing_experience, device_models, occupation, bug_report_sample, nda_signed } = req.body;
 
@@ -749,6 +815,7 @@ app.get('/admin/logout', (req, res) => {
 
 app.get('/admin/dashboard', async (req, res) => {
   if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+  if (!databaseReady) return respondDbUnavailable(res);
 
   try {
     const [totals, deviceStats, expStats, testers] = await Promise.all([
@@ -840,8 +907,8 @@ app.get('/admin/dashboard', async (req, res) => {
         </td>
         <td>${t.birth_year}</td>
         <td><div class="device-tags">${deviceTags}</div></td>
-        <td>${escapeHtml(t.testing_experience || '—')}</td>
-        <td>${escapeHtml(t.occupation || '—')}</td>
+        <td>${escapeHtml(t.testing_experience || '-')}</td>
+        <td>${escapeHtml(t.occupation || '-')}</td>
         <td>${ndaBadge}</td>
         <td>${statusBadge}</td>
         <td>${date}</td>
@@ -875,6 +942,7 @@ app.get('/admin/dashboard', async (req, res) => {
 
 app.get('/admin/export', async (req, res) => {
   if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+  if (!databaseReady) return respondDbUnavailable(res);
 
   try {
     const result = await pool.query(`
@@ -930,6 +998,7 @@ app.get('/admin/export', async (req, res) => {
 
 app.post('/admin/tester/:id/update', async (req, res) => {
   if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+  if (!databaseReady) return respondDbUnavailable(res);
 
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).send('Invalid ID.');
@@ -981,6 +1050,7 @@ app.post('/admin/tester/:id/update', async (req, res) => {
 
 app.post('/admin/tester/:id/delete', async (req, res) => {
   if (!isAdminAuthenticated(req)) return res.redirect('/admin');
+  if (!databaseReady) return respondDbUnavailable(res);
 
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).send('Invalid ID.');
@@ -1309,13 +1379,40 @@ app.post('/admin/reviews/:id/update', async (req, res) => {
   }
 });
 
-initDatabase()
-  .then(() => {
-    app.listen(port, '0.0.0.0', () => {
-      console.log(`Server running on port ${port}`);
-    });
-  })
-  .catch(err => {
-    console.error('Failed to initialize database:', err);
-    process.exit(1);
+function logDbInitFailure(err) {
+  let detail = err && err.message;
+  if (!detail && err && err.errors && err.errors[0]) {
+    const e = err.errors[0];
+    detail = e.code === 'ECONNREFUSED'
+      ? `connection refused (${e.address || 'host'}:${e.port || '?'})`
+      : e.message || String(e);
+  }
+  if (!detail) detail = String(err);
+  console.warn(
+    `Database unavailable: serving static pages only (${detail}). Set DATABASE_URL / start Postgres and restart for full features.`
+  );
+}
+
+(async function start() {
+  try {
+    await initDatabase();
+    databaseReady = true;
+    console.log('Database connected.');
+  } catch (err) {
+    logDbInitFailure(err);
+  }
+
+  const server = app.listen(port, '0.0.0.0', () => {
+    server.off('error', onListenError);
+    console.log(`Server running on port ${port}`);
   });
+  function onListenError(err) {
+    const hint =
+      err.code === 'EADDRINUSE'
+        ? ' Port in use: on macOS, AirPlay Receiver often binds :5000; try PORT=3000 npm start or disable AirPlay in System Settings → General → AirDrop & Handoff.'
+        : '';
+    console.error(`Failed to listen on ${port}:`, err.message || err, hint);
+    process.exit(1);
+  }
+  server.on('error', onListenError);
+})();

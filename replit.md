@@ -19,6 +19,7 @@ docker-compose.yml      - Full stack deployment (app + PostgreSQL)
 .env.example            - Template for environment variables
 uploads/                - User-uploaded screenshots (gitignored)
 views/
+  index.html            - Marketing landing page (home)
   step1.html            - Step 1 quick sign-up form
   step2.html            - Step 2 detailed profile form
   success.html          - Thank you / success page
@@ -63,13 +64,18 @@ All tables auto-created on startup via `initDatabase()`:
 - UNIQUE(subtask_id, tester_id)
 
 ## Routes
-
-### Registration
-- `GET /` — Step 1 form
-- `POST /api/step1` — Save Step 1 data, redirect to Step 2
-- `GET /complete-profile?token=X` — Step 2 form (token-based)
-- `POST /api/step2` — Complete profile, redirect to success
+- `GET /` — Marketing landing page (join + hire CTAs)
+- `GET /robots.txt`, `GET /sitemap.xml` — SEO (uses `SITE_URL`)
+- `GET /join` — Step 1 form (beta tester sign-up)
+- `POST /api/step1` — Save Step 1 data, redirect to Step 2 via token
+- `GET /complete-profile?token=X` — Step 2 form with pre-filled data (token-based access)
+- `POST /api/step2` — Update record with Step 2 data, redirect to success
 - `GET /success` — Confirmation page
+- `GET /admin` — Admin login (blocked if ADMIN_PASSWORD env is blank)
+- `POST /admin/login` — Authenticate with password
+- `GET /admin/dashboard` — Stats + tester table (authenticated)
+- `GET /admin/export` — CSV download of completed testers (authenticated)
+- `GET /admin/logout` — Clear session and redirect to login
 
 ### Tester Portal
 - `GET /login` — Tester email login page
@@ -120,6 +126,8 @@ All tables auto-created on startup via `initDatabase()`:
 | `ADMIN_PASSWORD` | *(blank)* | Admin dashboard password. Blank = dashboard disabled |
 | `APP_PORT` | `5000` | Host port mapping (Docker) |
 | `POSTGRES_PASSWORD` | `changeme` | PostgreSQL password (Docker) |
+| `SITE_URL` | `https://sousadev.com` | Canonical site URL (sitemap, Open Graph) |
+| `PORT` | `5000` | HTTP listen port (`NODE` / Replit) |
 
 ## GitHub
 - **Repo:** https://github.com/hc-sousa/sousa-dev-tester-web-app
